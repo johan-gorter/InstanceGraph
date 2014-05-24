@@ -1,0 +1,239 @@
+.entity-graph .svg-defs {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+}
+
+.entity-graph .chart {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.entity-graph .selected-entity-gradient-from {
+  stop-color:rgb(32,32,192);
+  stop-opacity:1
+}
+.entity-graph .selected-entity-gradient-to {
+  stop-color:rgb(16,16,128);
+  stop-opacity:1
+}
+
+.entity-graph .entity-gradient-from {
+  stop-color: rgb(192,192,192);
+  stop-opacity: 1; 
+}
+.entity-graph .entity-gradient-to {
+  stop-color:rgb(128,128,128);
+  stop-opacity:1
+}
+
+.entity-graph .role-relation-gradient-from {
+  stop-color: rgb(0,0,0); 
+  stop-opacity: 0.5
+}
+.entity-graph .role-relation-gradient-to {
+  stop-color:rgb(0,0,0);
+  stop-opacity: 0.1
+}
+
+.entity-graph .selected-role-relation-gradient-from {
+  stop-color: rgb(16,16,128); 
+  stop-opacity: 0.5
+}
+.entity-graph .selected-role-relation-gradient-to {
+  stop-color:rgb(16,16,128); 
+  stop-opacity: 0.1
+}
+
+.entity-graph .chart > svg {
+  width: 100%;
+  height: 100%;
+}
+
+.entity-graph .entity {
+  fill: #000;
+  cursor: move;
+}
+
+.entity-graph .entity .text {
+  font-family: Calibri, Candara, Segoe, "Segoe UI", Optima, Arial, sans-serif;
+  font-size: 15px;
+  fill: white;
+}
+
+.entity-graph .link {
+  stroke: rgb(128,128,128);
+  stroke-width: 2;
+}
+
+.entity-graph .link.selected {
+  stroke: rgb(16,16,192);
+}
+
+.entity-graph .link.one {
+  stroke-width: 1;
+}
+
+.entity-graph .link.optional {
+  stroke-dasharray: 3, 1;
+}
+
+.entity-graph .link.role {
+  stroke: url(#role-relation-gradient);
+  stroke-width: 10;
+}
+
+.entity-graph .link.role.selected {
+  stroke: url(#selected-role-relation-gradient);
+}
+
+.entity-graph .link.parts {
+  fill: rgb(128,128,128);
+}
+
+.entity-graph .link.parts.selected {
+  fill: rgb(16,16,192);
+}
+
+.entity-graph .chart > button {
+  position: absolute;
+  padding: 0;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  border: solid 3px #FF4C05;
+  display: inline-block;
+  background-color: transparent;
+  margin: 5px;
+  outline: none;
+}
+
+.entity-graph .chart > button > svg {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 30px;
+  height: 30px;
+}
+
+.entity-graph .chart > button > svg > path {
+  fill: none;
+  stroke-width: 8;
+  stroke: #FF4C05;
+}
+
+.entity-graph .focus {
+  fill: none;
+  stroke-width: 3;
+  stroke: #FF4C05;
+}
+
+.entity-graph .expand-all {
+  right: 260px;
+}
+
+.entity-graph .collapse-all {
+  right: 210px;
+}
+
+.entity-graph .search-icon {
+  position: absolute;
+  right: 14px;
+  top: 12px;
+  width: 24px;
+  height: 24px;
+}
+
+.entity-graph .search-icon > svg > circle {
+  fill: none;
+  stroke-width: 2;
+  stroke: #FF4C05;
+}
+
+.entity-graph .search-icon > svg > path {
+  stroke-width: 4;
+  stroke: #FF4C05;
+}
+
+.entity-graph .search {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  border-radius: 20px;
+  width: 200px;
+  min-width: 200px;
+  height: 40px;
+  border: solid 3px #FF4C05;
+  display: inline-block;
+  background-color: transparent;
+  padding: 0 30px 0 10px;
+  font-family: Calibri, Candara, Segoe, "Segoe UI", Optima, Arial, sans-serif;
+  font-size: 16px;
+  outline: none;
+  background-color: white;
+}
+
+.entity-graph .search-area {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 210px;
+  border-left: solid 2px black;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.entity-graph .search-results {
+  position: absolute;
+  top: 50px;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.entity-graph .search-results > .result {
+  height: 36px;
+  transition: height 0.3s ease;
+  overflow: hidden;
+}
+
+.entity-graph .search-results > .result.hidden {
+  height: 0;
+}
+
+.entity-graph .search-results > .result > .result-inner {
+  padding: 3px 4px;
+}
+
+.entity-graph .search-results > .result > .result-inner > button {
+  display: block;
+  border: 0;
+  background-color: white;
+  padding: 5px;
+  height: 30px;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  outline: none;
+}
+
+.entity-graph .search-results > .result.active > .result-inner > button {
+  background-color: #8888FF;
+}
+
+.entity-graph .search-results > .result > .result-inner > button:hover {
+  background-color: #CCCCCC;
+}
+
+.entity-graph .search-results > .result > .result-inner > button:active {
+  background-color: #AAAAAA;
+}
