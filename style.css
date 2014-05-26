@@ -1,4 +1,4 @@
-.entity-graph .svg-defs {
+.instance-graph .svg-defs {
   position: absolute;
   top: 0;
   left: 0;
@@ -6,7 +6,7 @@
   height: 0;
 }
 
-.entity-graph .chart {
+.instance-graph .chart {
   position: absolute;
   top: 0;
   left: 0;
@@ -14,93 +14,64 @@
   bottom: 0;
 }
 
-.entity-graph .selected-entity-gradient-from {
-  stop-color:rgb(32,32,192);
-  stop-opacity:1
-}
-.entity-graph .selected-entity-gradient-to {
-  stop-color:rgb(16,16,128);
-  stop-opacity:1
-}
-
-.entity-graph .entity-gradient-from {
+.instance-graph .instance-gradient-from {
   stop-color: rgb(192,192,192);
   stop-opacity: 1; 
 }
-.entity-graph .entity-gradient-to {
+.instance-graph .instance-gradient-to {
   stop-color:rgb(128,128,128);
   stop-opacity:1
 }
 
-.entity-graph .role-relation-gradient-from {
-  stop-color: rgb(0,0,0); 
-  stop-opacity: 0.5
+.instance-graph .selected-instance-gradient-from {
+  stop-color:rgb(32,32,192);
+  stop-opacity:1
 }
-.entity-graph .role-relation-gradient-to {
-  stop-color:rgb(0,0,0);
-  stop-opacity: 0.1
-}
-
-.entity-graph .selected-role-relation-gradient-from {
-  stop-color: rgb(16,16,128); 
-  stop-opacity: 0.5
-}
-.entity-graph .selected-role-relation-gradient-to {
-  stop-color:rgb(16,16,128); 
-  stop-opacity: 0.1
+.instance-graph .selected-instance-gradient-to {
+  stop-color:rgb(16,16,128);
+  stop-opacity:1
 }
 
-.entity-graph .chart > svg {
+.instance-graph .chart > svg {
   width: 100%;
   height: 100%;
+  font-family: Calibri, Candara, Segoe, "Segoe UI", Optima, Arial, sans-serif;
+  font-size: 15px;
 }
 
-.entity-graph .entity {
+.instance-graph .instance {
   fill: #000;
   cursor: move;
 }
 
-.entity-graph .entity .text {
-  font-family: Calibri, Candara, Segoe, "Segoe UI", Optima, Arial, sans-serif;
-  font-size: 15px;
+.instance-graph .instance .background{
+  fill: url(#instance-gradient);
+}
+
+.instance-graph .instance.selected .background{
+  fill: url(#selected-instance-gradient);
+}
+
+.instance-graph .instance .title {
   fill: white;
 }
 
-.entity-graph .link {
+.instance-graph .instance .separator {
+  stroke: white;
+  stroke-width: 1;
+}
+
+
+.instance-graph .link {
   stroke: rgb(128,128,128);
   stroke-width: 2;
 }
 
-.entity-graph .link.selected {
+.instance-graph .link.selected {
   stroke: rgb(16,16,192);
 }
 
-.entity-graph .link.one {
-  stroke-width: 1;
-}
-
-.entity-graph .link.optional {
-  stroke-dasharray: 3, 1;
-}
-
-.entity-graph .link.role {
-  stroke: url(#role-relation-gradient);
-  stroke-width: 10;
-}
-
-.entity-graph .link.role.selected {
-  stroke: url(#selected-role-relation-gradient);
-}
-
-.entity-graph .link.parts {
-  fill: rgb(128,128,128);
-}
-
-.entity-graph .link.parts.selected {
-  fill: rgb(16,16,192);
-}
-
-.entity-graph .chart > button {
+.instance-graph .chart > button {
   position: absolute;
   padding: 0;
   border-radius: 50%;
@@ -113,7 +84,7 @@
   outline: none;
 }
 
-.entity-graph .chart > button > svg {
+.instance-graph .chart > button > svg {
   position: absolute;
   top: 2px;
   left: 2px;
@@ -121,27 +92,19 @@
   height: 30px;
 }
 
-.entity-graph .chart > button > svg > path {
+.instance-graph .chart > button > svg > path {
   fill: none;
   stroke-width: 8;
   stroke: #FF4C05;
 }
 
-.entity-graph .focus {
+.instance-graph .focus {
   fill: none;
   stroke-width: 3;
   stroke: #FF4C05;
 }
 
-.entity-graph .expand-all {
-  right: 260px;
-}
-
-.entity-graph .collapse-all {
-  right: 210px;
-}
-
-.entity-graph .search-icon {
+.instance-graph .search-icon {
   position: absolute;
   right: 14px;
   top: 12px;
@@ -149,18 +112,18 @@
   height: 24px;
 }
 
-.entity-graph .search-icon > svg > circle {
+.instance-graph .search-icon > svg > circle {
   fill: none;
   stroke-width: 2;
   stroke: #FF4C05;
 }
 
-.entity-graph .search-icon > svg > path {
+.instance-graph .search-icon > svg > path {
   stroke-width: 4;
   stroke: #FF4C05;
 }
 
-.entity-graph .search {
+.instance-graph .search {
   position: absolute;
   top: 5px;
   right: 5px;
@@ -178,7 +141,7 @@
   background-color: white;
 }
 
-.entity-graph .search-area {
+.instance-graph .search-area {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -188,7 +151,7 @@
   background-color: rgba(0, 0, 0, 0.5);
 }
 
-.entity-graph .search-results {
+.instance-graph .search-results {
   position: absolute;
   top: 50px;
   bottom: 0;
@@ -198,21 +161,21 @@
   overflow-y: auto;
 }
 
-.entity-graph .search-results > .result {
+.instance-graph .search-results > .result {
   height: 36px;
   transition: height 0.3s ease;
   overflow: hidden;
 }
 
-.entity-graph .search-results > .result.hidden {
+.instance-graph .search-results > .result.hidden {
   height: 0;
 }
 
-.entity-graph .search-results > .result > .result-inner {
+.instance-graph .search-results > .result > .result-inner {
   padding: 3px 4px;
 }
 
-.entity-graph .search-results > .result > .result-inner > button {
+.instance-graph .search-results > .result > .result-inner > button {
   display: block;
   border: 0;
   background-color: white;
@@ -226,14 +189,14 @@
   outline: none;
 }
 
-.entity-graph .search-results > .result.active > .result-inner > button {
+.instance-graph .search-results > .result.active > .result-inner > button {
   background-color: #8888FF;
 }
 
-.entity-graph .search-results > .result > .result-inner > button:hover {
+.instance-graph .search-results > .result > .result-inner > button:hover {
   background-color: #CCCCCC;
 }
 
-.entity-graph .search-results > .result > .result-inner > button:active {
+.instance-graph .search-results > .result > .result-inner > button:active {
   background-color: #AAAAAA;
 }
