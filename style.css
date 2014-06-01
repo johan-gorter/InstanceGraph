@@ -44,23 +44,33 @@
   cursor: move;
 }
 
-.instance-graph .instance .background{
+.instance-graph .instance > .background {
   fill: url(#instance-gradient);
 }
 
-.instance-graph .instance.selected .background{
+.instance-graph .instance.selected > .background{
   fill: url(#selected-instance-gradient);
 }
 
-.instance-graph .instance .title {
+.instance-graph .instance > .title {
   fill: white;
 }
 
-.instance-graph .instance .separator {
+.instance-graph .instance > .separator {
   stroke: white;
   stroke-width: 1;
 }
 
+.instance-graph .attribute > .background {
+  fill: #888888;
+}
+
+.instance-graph .attribute.selected > .background {
+  fill: none;
+}
+.instance-graph .attribute.selected > text {
+  fill: white;
+}
 
 .instance-graph .link {
   stroke: rgb(128,128,128);
