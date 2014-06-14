@@ -45,11 +45,17 @@
 }
 
 .instance-graph .instance > .background {
-  fill: url(#instance-gradient);
+  fill: url(#selected-instance-gradient);
 }
 
-.instance-graph .instance.selected > .background{
-  fill: url(#selected-instance-gradient);
+.instance-graph .instance > g > .button {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.instance-graph .instance > g > .expand-collapse {
+  stroke: white;
+  stroke-width: 2;
 }
 
 .instance-graph .instance > .title {
@@ -63,6 +69,7 @@
 
 .instance-graph .attribute > .background {
   fill: #888888;
+  cursor: pointer;
 }
 
 .instance-graph .attribute.selected > .background {
@@ -81,132 +88,36 @@
   stroke: rgb(16,16,192);
 }
 
-.instance-graph .chart > button {
+.instance-graph > .chart > .overlay {
   position: absolute;
-  padding: 0;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  border: solid 3px #FF4C05;
-  display: inline-block;
-  background-color: transparent;
-  margin: 5px;
-  outline: none;
-}
-
-.instance-graph .chart > button > svg {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 30px;
-  height: 30px;
-}
-
-.instance-graph .chart > button > svg > path {
-  fill: none;
-  stroke-width: 8;
-  stroke: #FF4C05;
-}
-
-.instance-graph .focus {
-  fill: none;
-  stroke-width: 3;
-  stroke: #FF4C05;
-}
-
-.instance-graph .search-icon {
-  position: absolute;
-  right: 14px;
-  top: 12px;
-  width: 24px;
-  height: 24px;
-}
-
-.instance-graph .search-icon > svg > circle {
-  fill: none;
-  stroke-width: 2;
-  stroke: #FF4C05;
-}
-
-.instance-graph .search-icon > svg > path {
-  stroke-width: 4;
-  stroke: #FF4C05;
-}
-
-.instance-graph .search {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  border-radius: 20px;
-  width: 200px;
-  min-width: 200px;
-  height: 40px;
-  border: solid 3px #FF4C05;
-  display: inline-block;
-  background-color: transparent;
-  padding: 0 30px 0 10px;
-  font-family: Calibri, Candara, Segoe, "Segoe UI", Optima, Arial, sans-serif;
-  font-size: 16px;
-  outline: none;
-  background-color: white;
-}
-
-.instance-graph .search-area {
-  position: absolute;
+  left: 0;
   top: 0;
-  bottom: 0;
-  right: 0;
-  width: 210px;
-  border-left: solid 2px black;
+  width: 100%;
+  height: 100%;
   background-color: rgba(0, 0, 0, 0.5);
 }
 
-.instance-graph .search-results {
-  position: absolute;
-  top: 50px;
-  bottom: 0;
-  right: 0;
-  left: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-.instance-graph .search-results > .result {
-  height: 36px;
-  transition: height 0.3s ease;
-  overflow: hidden;
-}
-
-.instance-graph .search-results > .result.hidden {
-  height: 0;
-}
-
-.instance-graph .search-results > .result > .result-inner {
-  padding: 3px 4px;
-}
-
-.instance-graph .search-results > .result > .result-inner > button {
-  display: block;
-  border: 0;
+.instance-graph > .chart > .overlay > .dialog {
+  position: relative;
+  width: 400px;
+  max-width: calc(100% - 20px);
+  margin: 10px auto;
+  height: calc(100% - 20px);
   background-color: white;
-  padding: 5px;
-  height: 30px;
-  width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  text-align: left;
-  outline: none;
+  box-shadow: 0 0 5px black;
+  padding: 10px;
 }
 
-.instance-graph .search-results > .result.active > .result-inner > button {
-  background-color: #8888FF;
+.instance-graph .dialog > .close {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  display: block;
+  font-size: 20px;
+  line-height: 20px;
+  cursor: pointer;
 }
 
-.instance-graph .search-results > .result > .result-inner > button:hover {
-  background-color: #CCCCCC;
-}
-
-.instance-graph .search-results > .result > .result-inner > button:active {
-  background-color: #AAAAAA;
+.instance-graph .dialog > h1 {
+  margin: 0;
 }

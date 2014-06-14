@@ -3,18 +3,6 @@
 /*globals $, d3 */
 /*jslint browser: true, vars: true, indent: 2 */
 
-/*
-
-Instances can be unselected or selected
-
-Instance Focus = show all attributes
-Attribute focus = edit
-Relation focus = list with checkboxes, select all
-
-first click selects, second click focusses, x (visible when focussed) closes
-gray=unselected, blue=selected, red=focussed
-
- */
 
 (function () {
 
@@ -52,12 +40,20 @@ gray=unselected, blue=selected, red=focussed
 
   var createInstance = function (appendTo, id, graph) {
     var model = null;
+    var focussed = false;
+    var reverseRelations = [];
+    var relations = [];
+    var attributes = [];
     var x = 0;
     var y = 0;
-    var backgroundRect, titleText, reverseRelationsGroup, relationsGroup, attributesGroup, separator2, separator3, clipPath, keyClipPath, valueClipPath;
-    var rootGroup = svg.g({"class": "instance selected"},
+    var backgroundRect, titleText, reverseRelationsGroup, relationsGroup, attributesGroup, separator2, separator3, clipPath, keyClipPath, valueClipPath, expandCollapsePath, expandCollapseGroup;
+    var rootGroup = svg.g({"class": "instance"},
       backgroundRect = svg.rect({ "class": "background", x: "-80", y: "0", width: "160", height: "40", rx: "10", ry: "10" }),
-      svg.clipPath({ id: "clip-"+id}, clipPath = svg.rect({ x: "-70", y: "0", width: "140", height: "40" })),
+      expandCollapseGroup = svg.g({transform: "translate(60, 5)"},
+        expandCollapsePath = svg.path({"class":"expand-collapse", d: "M5,8 l 5,3 l 5,-3"}),
+        svg.rect({ "class": "button", x: "0", y: "0", width: "18", height: "20" })
+      ),
+      svg.clipPath({ id: "clip-" + id }, clipPath = svg.rect({ x: "-70", y: "0", width: "130", height: "40" })),
       svg.clipPath({ id: "clip-key-" + id }, keyClipPath = svg.rect({ x: "-70", y: "0", width: "65", height: "40" })),
       svg.clipPath({ id: "clip-value-" + id }, valueClipPath = svg.rect({ x: "5", y: "0", width: "65", height: "40" })),
       titleText = svg.text({ "class": "title", "clip-path": "url(#clip-" + id + ")", "text-anchor": "left", x: "-70", y: "4", dy: "15", "pointer-events": "none" }, ""),
@@ -73,18 +69,22 @@ gray=unselected, blue=selected, red=focussed
       rootGroup.attr("transform", "translate(" + x + "," + y + ")");
     }
 
-    function initAttributes(group, offset, datas, indexOffset) {
-      group.attr("transform", "translate(0, "+(offset + indexOffset*20)+")");
-      datas.forEach(function (data, index) {
-        var attribute = createAttribute(group, data.id, id);
+    function initAttributes(group, items, datas) {
+      datas.forEach(function (data) {
+        var attribute = createAttribute(group, data.id, parentApi);
+        items.push(attribute);
         attribute.init(data);
-        attribute.setIndex(index);
       });
+    };
+
+    function click(evt) {
+      graph.requestFocus(api);
     };
 
     function beginDrag(fromX, fromY, touchIdentifier) {
       var oldX = x;
       var oldY = y;
+      var moved = false;
       var scale = graph.getScale();
       var from = toSVGCoordinates(rootGroup[0], fromX, fromY);
       var svg = $(rootGroup[0].ownerSVGElement);
@@ -95,8 +95,14 @@ gray=unselected, blue=selected, red=focussed
         renderPosition();
       };
       function mouseMoved(evt) {
+        moved = true;
         moveTo(evt.clientX, evt.clientY);
       };
+      function dragEnd(evt) {
+        if(!moved) {
+          click(evt);
+        }
+      }
       if(touchIdentifier) {
         svg.on("touchmove", function (evt) {
           for(var i = 0; i < evt.changedTouches.length; i++) {
@@ -111,6 +117,7 @@ gray=unselected, blue=selected, red=focussed
         svg.on("mousemove", mouseMoved);
         svg.one("mouseup", function (evt) {
           svg.off("mousemove", mouseMoved);
+          dragEnd(evt);
         });
       }
     };
@@ -125,49 +132,126 @@ gray=unselected, blue=selected, red=focussed
       evt.stopPropagation();
     });
 
+    expandCollapseGroup.on("mousedown mouseup touchstart", function (evt) {
+      evt.stopPropagation();
+    });
+    expandCollapseGroup.on("click", function (evt) {
+      click(evt);
+    });
+
     appendTo.append(rootGroup);
 
-    return {
+    function positionAttributes(group, items, offset, indexOffset) {
+      group.attr("transform", "translate(0, " + (offset + indexOffset * 20) + ")");
+      var index = 0;
+      items.forEach(function (item) {
+        if (focussed || item.isSelected()) {
+          item.setIndex(index++);
+        } else {
+          item.setIndex(-1);
+        }
+      });
+      return indexOffset+index;
+    }
+
+    var positionEverything = function () {
+      var indexOffset = 0;
+      indexOffset = positionAttributes(reverseRelationsGroup, reverseRelations, 31, indexOffset);
+      separator2.attr("y1", indexOffset * 20 + 32).attr("y2", indexOffset * 20 + 32);
+      indexOffset = positionAttributes(relationsGroup, relations, 33, indexOffset);
+      separator3.attr("y1", indexOffset * 20 + 34).attr("y2", indexOffset * 20 + 34);
+      indexOffset = positionAttributes(attributesGroup, attributes, 35, indexOffset);
+      backgroundRect.attr("height", indexOffset * 20 + 45);
+      clipPath.attr("height", indexOffset * 20 + 45);
+      keyClipPath.attr("height", indexOffset * 20 + 45);
+      valueClipPath.attr("height", indexOffset * 20 + 45);
+    };
+
+    var parentApi = {
+      getId: function () {
+        return id;
+      },
+      getGraph: function () {
+        return graph;
+      }
+    };
+    var api = {
       init: function (data) {
         model = data;
         titleText.text(data.title);
-        var indexOffset = 0;
-        initAttributes(reverseRelationsGroup, 31, data.reverseRelations, indexOffset);
-        indexOffset += data.reverseRelations.length;
-        separator2.attr("y1", indexOffset * 20 + 32).attr("y2", indexOffset * 20 + 32);
-        initAttributes(relationsGroup, 33, data.relations, indexOffset);
-        indexOffset += data.relations.length;
-        separator3.attr("y1", indexOffset * 20 + 34).attr("y2", indexOffset * 20 + 34);
-        initAttributes(attributesGroup, 35, data.attributes, indexOffset);
-        indexOffset += data.attributes.length;
-        backgroundRect.attr("height", indexOffset * 20 + 45);
-        clipPath.attr("height", indexOffset * 20 + 45);
-        keyClipPath.attr("height", indexOffset * 20 + 45);
-        valueClipPath.attr("height", indexOffset * 20 + 45);
+        initAttributes(reverseRelationsGroup, reverseRelations, data.reverseRelations);
+        initAttributes(relationsGroup, relations, data.relations);
+        initAttributes(attributesGroup, attributes, data.attributes);
+        positionEverything();
       },
       update: function (newData) {
         
+      },
+      getGraph: function () {
+        return graph;
+      },
+      setFocus: function (focus) {
+        focussed = focus;
+        if(focus) {
+          rootGroup.addClass("focus");
+          expandCollapsePath.attr("transform", "rotate(180 10 9)");
+          positionEverything();
+        } else {
+          rootGroup.removeClass("focus");
+          expandCollapsePath.attr("transform", "");
+          positionEverything();
+        }
       }
     };
+    return api;
   };
 
   // ATTRIBUTE
 
-  var createAttribute = function (appendTo, id, instanceId) {
+  var createAttribute = function (appendTo, id, instance) {
     var model = null;
-    var index = 0;
+    var index = -1;
     var backgroundRect, nameText, valueText;
-    var rootGroup = svg.g({ "class": "attribute" },
+    var selected = false;
+    var rootGroup = svg.g({ "class": "attribute", "display": "none" },
       backgroundRect = svg.rect({ "class": "background", x: "-80", y: "0", width: "160", height: "20" }),
       nameText = svg.text({
-        "class": "name", "text-anchor": "left", "clip-path": "url(#clip-key-" + instanceId + ")",
+        "class": "name", "text-anchor": "left", "clip-path": "url(#clip-key-" + instance.getId() + ")",
         x: "-70", y: "0", dy: "15", "pointer-events": "none"
       }, ""),
       valueText = svg.text({
-        "class": "value", "text-anchor": "left", "clip-path": "url(#clip-value-" + instanceId + ")",
+        "class": "value", "text-anchor": "left", "clip-path": "url(#clip-value-" + instance.getId() + ")",
         x: "10", y: "0", dy: "15", "pointer-events": "none"
       }, "")
     );
+
+    backgroundRect.on("mousedown", function (evt) {
+      evt.stopPropagation();
+    });
+    backgroundRect.on("mouseup", function (evt) {
+      evt.stopPropagation();
+    });
+
+    var createDialog = function (appendTo) {
+      var dialog = html.div(
+        html.h1(model.name || model.id),
+        html.button("Hide")
+      );
+      appendTo.append(dialog);
+      return {
+      };
+    };
+
+    backgroundRect.on("click", function (evt) {
+      evt.preventDefault();
+      evt.stopPropagation();
+      if(!selected) {
+        selected = true;
+        rootGroup.addClass("selected");
+      } else {
+        instance.getGraph().showDialog(createDialog);
+      }
+    });
 
     appendTo.append(rootGroup);
 
@@ -177,12 +261,20 @@ gray=unselected, blue=selected, red=focussed
         nameText.text(data.name || data.id);
         valueText.text((typeof data.stored === "string") ? data.stored : "");
       },
-      setIndex: function (newIndex) {
-        index = newIndex;
-        rootGroup.attr("transform", "translate(0, " + (20 * index) + ")");
-      },
       update: function (data) {
 
+      },
+      setIndex: function (newIndex) {
+        index = newIndex;
+        if(newIndex === -1) {
+          rootGroup.attr("display", "none");
+        } else {
+          rootGroup.attr("display", "");
+          rootGroup.attr("transform", "translate(0, " + (20 * index) + ")");
+        }
+      },
+      isSelected: function () {
+        return selected;
       }
     };
   };
@@ -205,6 +297,7 @@ gray=unselected, blue=selected, red=focussed
     // Initialization
     var handleZoom, backgroundElement, visualization, instancesGroup, relationsGroup;
     var instances = [];
+    var focussedInstance = null;
     var defs = html.div({ "class": "svg-defs"},
         svg.svg(
           svg.defs(
@@ -235,13 +328,41 @@ gray=unselected, blue=selected, red=focussed
     initZoom(handleZoom, visualization, onRescale);
 
     // API
-
+    var parentApi = {
+      getScale: function () {
+        return scale;
+      },
+      requestFocus: function (instance) {
+        if(focussedInstance) {
+          focussedInstance.setFocus(false);
+        }
+        if(instance === focussedInstance) {
+          focussedInstance = null;
+          instance.setFocus(false);
+        } else {
+          focussedInstance = instance;
+          focussedInstance.setFocus(true);
+        }
+      },
+      showDialog: function (callback) {
+        var dialog = $("<div class='overlay'><div class='dialog'><div class='close'>&times;</div></div></div>")
+          .on("click", function (evt) {
+            var target = $(evt.target); 
+            if(target.closest(".close").length === 1 || target.closest(".dialog").length === 0) {
+              evt.preventDefault();
+              dialog.remove();
+            }
+          })
+          .appendTo(chartSvg);
+        callback(chartSvg.find(".dialog"));
+      }
+    };
     return {
       init: function (data) {
         model = data;
         for(var i = 0; i < model.instances.length; i++) {
           var instanceData = model.instances[i];
-          var instance = createInstance(instancesGroup, instanceData.id, {getScale: function () { return scale; } });
+          var instance = createInstance(instancesGroup, instanceData.id, parentApi);
           instance.init(instanceData);
           instances.push(instance);
         }
