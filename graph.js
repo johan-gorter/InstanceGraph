@@ -36,27 +36,32 @@
     return [point.x, point.y];
   }
 
+
+
   // INSTANCE
 
-  var createInstance = function (appendTo, id, graph) {
+
+
+  var createInstance = function (appendTo, id, graph, dataSource, pos) {
     var model = null;
     var focussed = false;
     var reverseRelations = [];
     var relations = [];
     var attributes = [];
-    var x = 0;
-    var y = 0;
+    var afterLoad = {};
+    var x = pos ? pos[0] : 0;
+    var y = pos ? pos[1] : 0;
     var backgroundRect, titleText, reverseRelationsGroup, relationsGroup, attributesGroup, separator2, separator3, clipPath, keyClipPath, valueClipPath, expandCollapsePath, expandCollapseGroup;
     var rootGroup = svg.g({"class": "instance"},
       backgroundRect = svg.rect({ "class": "background", x: "-80", y: "0", width: "160", height: "40", rx: "10", ry: "10" }),
-      expandCollapseGroup = svg.g({transform: "translate(60, 5)"},
+      expandCollapseGroup = svg.g({transform: "translate(-75, 5)"},
         expandCollapsePath = svg.path({"class":"expand-collapse", d: "M5,8 l 5,3 l 5,-3"}),
         svg.rect({ "class": "button", x: "0", y: "0", width: "18", height: "20" })
       ),
-      svg.clipPath({ id: "clip-" + id }, clipPath = svg.rect({ x: "-70", y: "0", width: "130", height: "40" })),
+      svg.clipPath({ id: "clip-" + id }, clipPath = svg.rect({ x: "-60", y: "0", width: "130", height: "40" })),
       svg.clipPath({ id: "clip-key-" + id }, keyClipPath = svg.rect({ x: "-70", y: "0", width: "65", height: "40" })),
       svg.clipPath({ id: "clip-value-" + id }, valueClipPath = svg.rect({ x: "5", y: "0", width: "65", height: "40" })),
-      titleText = svg.text({ "class": "title", "clip-path": "url(#clip-" + id + ")", "text-anchor": "left", x: "-70", y: "4", dy: "15", "pointer-events": "none" }, ""),
+      titleText = svg.text({ "class": "title", "clip-path": "url(#clip-" + id + ")", "text-anchor": "left", x: "-55", y: "4", dy: "15", "pointer-events": "none" }, ""),
       svg.line({x1:"-80", y1: "30", "x2": "80", y2: "30", "class": "separator" }),
       reverseRelationsGroup = svg.g({"transform": "translate(0,30)"}),
       separator2 = svg.line({ x1: "-80", y1: "32", "x2": "80", y2: "32", "class": "separator" }),
@@ -67,11 +72,14 @@
 
     function renderPosition() {
       rootGroup.attr("transform", "translate(" + x + "," + y + ")");
+      graph.renderRelations();
     }
 
-    function initAttributes(group, items, datas) {
+    renderPosition();
+
+    function initAttributes(group, type, items, datas) {
       datas.forEach(function (data) {
-        var attribute = createAttribute(group, data.id, parentApi);
+        var attribute = createAttribute(group, data.id, type, api);
         items.push(attribute);
         attribute.init(data);
       });
@@ -165,27 +173,55 @@
       clipPath.attr("height", indexOffset * 20 + 45);
       keyClipPath.attr("height", indexOffset * 20 + 45);
       valueClipPath.attr("height", indexOffset * 20 + 45);
+      graph.renderRelations();
     };
 
-    var parentApi = {
-      getId: function () {
-        return id;
-      },
-      getGraph: function () {
-        return graph;
+    var showReverseOf = function (otherRelation, otherRelationIsReverse) {
+      if(otherRelationIsReverse) {
+        var reverseId = otherRelation.getReverseOf();
+        relations.forEach(function (relation) {
+          if(relation.id === reverseId) {
+            relation.setSelected(true);
+            graph.addVisibleRelation(relation, otherRelation);
+          }
+        });
+      } else {
+        reverseRelations.forEach(function (relation) {
+          if (relation.getReverseOf() === otherRelation.id) {
+            relation.setSelected(true);
+            graph.addVisibleRelation(otherRelation, relation);
+          }
+        });
       }
     };
-    var api = {
-      init: function (data) {
-        model = data;
+
+    // listen to the dataSource
+    var subscription = dataSource.subscribe(id, function (data) {
+      model = data;
+      if(!data) {
+        graph.hideInstance(id); // calls our dispose()
+      } else {
         titleText.text(data.title);
-        initAttributes(reverseRelationsGroup, reverseRelations, data.reverseRelations);
-        initAttributes(relationsGroup, relations, data.relations);
-        initAttributes(attributesGroup, attributes, data.attributes);
+        initAttributes(reverseRelationsGroup, "reverseRelation", reverseRelations, data.reverseRelations);
+        initAttributes(relationsGroup, "relation", relations, data.relations);
+        initAttributes(attributesGroup, "attribute", attributes, data.attributes);
+        if(afterLoad.showReverseOf) {
+          showReverseOf(afterLoad.showReverseOf, afterLoad.showReverseOfIsReverse);
+        }
         positionEverything();
+        graph.renderRelations();
+      }
+    });
+
+    var api = {
+      id: id,
+      getPosition: function () {
+        return [x, y];
       },
-      update: function (newData) {
-        
+      relations: relations, // temporary for testing
+      render: positionEverything,
+      getId: function () {
+        return id;
       },
       getGraph: function () {
         return graph;
@@ -201,14 +237,51 @@
           expandCollapsePath.attr("transform", "");
           positionEverything();
         }
+      },
+      showReverseOf: function(relation, relationIsReverse) {
+        if(model) {
+          showReverseOf(relation, relationIsReverse);
+        } else {
+          afterLoad.showReverseOf = relation;
+          afterLoad.showReverseOfIsReverse = relationIsReverse;
+        }
+      },
+      getRelationPosition: function (relation, relationIsReverse, anchor) {
+        if(!model) {
+          return [x, y];
+        }
+        var offset = relationIsReverse ? 31 : 33;
+        if(!relationIsReverse) {
+          reverseRelations.forEach(function (reverseRelation) {
+            if(focussed || reverseRelation.isSelected()) {
+              offset += 20;
+            }
+          });
+        }
+        offset = offset + relation.getIndex() * 20;
+        return [x + (anchor === "right" ? 80 : -80), y + offset + 10];
+      },
+      dispose: function () {
+        relations.forEach(function (relation) {
+          relation.setSelected(false);
+        });
+        reverseRelations.forEach(function (relation) {
+          relation.setSelected(false);
+        });
+        rootGroup.remove();
+        subscription.dispose();
       }
     };
     return api;
   };
 
+
+
   // ATTRIBUTE
 
-  var createAttribute = function (appendTo, id, instance) {
+
+
+  var createAttribute = function (appendTo, id, type, instance) {
     var model = null;
     var index = -1;
     var backgroundRect, nameText, valueText;
@@ -232,12 +305,44 @@
       evt.stopPropagation();
     });
 
+    var appendRelationLine = function (appendTo, id, index) {
+      html.label({ "class": "line" },
+        html.input({ type: "checkbox" })
+          .prop("checked", instance.getGraph().isInstanceVisible(id))
+          .on("click", function (evt) {
+            if($(this).prop("checked")) {
+              instance.getGraph().showInstance(id, instance, api, index, type==="reverseRelation");
+            } else {
+              instance.getGraph().hideInstance(id);
+            }
+          }
+        ),
+        html.span(id)
+      ).appendTo(appendTo);
+    };
+
     var createDialog = function (appendTo) {
-      var dialog = html.div(
-        html.h1(model.name || model.id),
-        html.button("Hide")
-      );
-      appendTo.append(dialog);
+      html.h1(model.name || model.id).appendTo(appendTo);
+      html.button("Hide")
+        .on("click", function (evt) {
+          evt.preventDefault();
+          api.setSelected(false);
+          instance.render();
+          instance.getGraph().removeDialog();
+        })
+        .appendTo(appendTo);
+      if(type === "attribute") {
+        html.textarea().val(model.stored).prop('readonly', true).appendTo(appendTo);
+      } else {
+        // todo: header
+        if(model.stored instanceof Array) {
+          for(var i = 0; i < model.stored.length; i++) {
+            appendRelationLine(appendTo, model.stored[i], i);
+          }
+        } else {
+          appendRelationLine(appendTo, model.stored, 0);
+        }
+      }
       return {
       };
     };
@@ -245,9 +350,8 @@
     backgroundRect.on("click", function (evt) {
       evt.preventDefault();
       evt.stopPropagation();
-      if(!selected) {
-        selected = true;
-        rootGroup.addClass("selected");
+      if (!selected) {
+        api.setSelected(true);
       } else {
         instance.getGraph().showDialog(createDialog);
       }
@@ -255,14 +359,23 @@
 
     appendTo.append(rootGroup);
 
-    return {
+    var api = {
+      id: id,
+      isReverseRelation: function () {
+        return !!model.reverse;
+      },
+      getReverseOf: function () {
+        return model.reverse;
+      },
       init: function (data) {
         model = data;
         nameText.text(data.name || data.id);
         valueText.text((typeof data.stored === "string") ? data.stored : "");
       },
       update: function (data) {
-
+      },
+      getIndex: function () {
+        return index;
       },
       setIndex: function (newIndex) {
         index = newIndex;
@@ -273,20 +386,73 @@
           rootGroup.attr("transform", "translate(0, " + (20 * index) + ")");
         }
       },
+      setSelected: function (newSelected) {
+        if(selected !== newSelected) {
+          selected = newSelected;
+          rootGroup.toggleClass("selected", newSelected);
+          instance.render();
+          if (selected) {
+            instance.getGraph().showRelations(api);
+          } else {
+            instance.getGraph().hideRelations(api);
+          }
+        }
+      },
       isSelected: function () {
         return selected;
+      },
+      getValue: function () {
+        return model.stored;
+      },
+      forEachValue:function (callback) {
+        if(model.stored) {
+          if(model.stored instanceof Array) {
+            model.stored.forEach(callback);
+          } else {
+            callback(model.stored, 0);
+          }
+        }
+      },
+      getInstance: function () {
+        return instance;
+      }
+    };
+    return api;
+  };
+
+
+  // RELATION (edge)
+
+
+  var createRelation = function (appendTo, relation, reverseRelation) {
+    var path = svg.path({ "class": "relation", d: "" });
+    path.appendTo(appendTo);
+    return {
+      isConnectedTo: function (aRelation) {
+        return aRelation === relation || aRelation === reverseRelation;
+      },
+      render: function () {
+        var from = relation.getInstance().getRelationPosition(relation, false, "right");
+        var to = reverseRelation.getInstance().getRelationPosition(reverseRelation, true, "left");
+        path[0].setAttribute("d", "M"+from+" L"+to);
+      },
+      dispose: function () {
+        path.remove();
       }
     };
   };
 
+
+
   // INSTANCE GRAPH
 
-  window.createInstanceGraph = function (appendTo, id) {
 
-    "use strict";
-  
+
+  window.createInstanceGraph = function (appendTo, id, dataSource /*{subscribe(id, function)}*/, startInstanceId) {
+
     // state
-    var model = null;
+    var instances = [];
+    var relations = [];
     var scale = 1;
     var onRescale = function (newScale) {
       scale = newScale;
@@ -296,7 +462,6 @@
 
     // Initialization
     var handleZoom, backgroundElement, visualization, instancesGroup, relationsGroup;
-    var instances = [];
     var focussedInstance = null;
     var defs = html.div({ "class": "svg-defs"},
         svg.svg(
@@ -355,20 +520,87 @@
           })
           .appendTo(chartSvg);
         callback(chartSvg.find(".dialog"));
-      }
-    };
-    return {
-      init: function (data) {
-        model = data;
-        for(var i = 0; i < model.instances.length; i++) {
-          var instanceData = model.instances[i];
-          var instance = createInstance(instancesGroup, instanceData.id, parentApi);
-          instance.init(instanceData);
-          instances.push(instance);
+      },
+      removeDialog: function () {
+        chartSvg.find(".overlay").remove();
+      },
+      isInstanceVisible: function (id) {
+        for(var i = 0; i < instances.length; i++) {
+          if(instances[i].id === id) {
+            return true;
+          }
+        }
+        return false;
+      },
+      showInstance: function (instanceId, fromInstance, relation, itemNr, relationIsReverse) {
+        var x = 0;
+        var y = 0;
+        if(fromInstance && relation) {
+          var pos = fromInstance.getPosition();
+          x = pos[0] + (300 * (relationIsReverse ? -1 : 1));
+          y = pos[1] + relation.getIndex() * 20 + itemNr * 40;
+        }
+        var instance = createInstance(instancesGroup, instanceId, parentApi, dataSource, [x, y]);
+        instances.push(instance);
+        instance.showReverseOf(relation, relationIsReverse);
+      },
+      hideInstance: function (instanceId) {
+        for(var i = 0; i < instances.length; i++) {
+          var instance = instances[i];
+          if(instance.id === instanceId) {
+            instance.dispose();
+            instances.splice(i, 1);
+            return;
+          }
+        }
+        throw new Error("instance not found: " + instanceId);
+      },
+      hideRelations: function (relation) {
+        for(var i = 0; i < relations.length;) {
+          if (relations[i].isConnectedTo(relation)) {
+            relations[i].dispose();
+            relations.splice(i, 1);
+          } else {
+            i++;
+          }
         }
       },
-    
-      update: function(newData) {
+      showRelations: function (relation) {
+        relation.forEachValue(function (value) {
+          instances.forEach(function (instance) {
+            if(instance.id === value) {
+              instance.showReverseOf(relation, relation.isReverseRelation());
+            }
+          });
+        });
+      },
+      addVisibleRelation: function (relation, reverseRelation) {
+        relations.push(createRelation(relationsGroup, relation, reverseRelation));
+        parentApi.renderRelations();
+      },
+      renderRelations: function () {
+        relations.forEach(function (relation) {
+          relation.render();
+        });
+      }
+    };
+    parentApi.showInstance(startInstanceId, null, null);
+    return {
+      test: function () {
+        setTimeout(function () {
+          parentApi.requestFocus(instances[0]);
+          instances[0].relations.forEach(function (relation, index) {
+            relation.setSelected(true);
+            var value = relation.getValue();
+            if (value instanceof Array) {
+              value.forEach(function (instanceId) {
+                parentApi.showInstance(instanceId, instances[0], relation, index, false);
+              });
+            } else {
+              parentApi.showInstance(value, instances[0], relation, index, false);
+            }
+          });
+        }, 50);
       }
     };
   };

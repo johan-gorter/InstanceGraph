@@ -32,59 +32,72 @@
 </head>
 <body class="instance-graph">
     
-    <script>
-      
-      var instanceGraph = window.createInstanceGraph($(document.body));
+  <script>
 
-      instanceGraph.init(
-        {
-          instances: [
-            {
-              id: "project1",
-              entity: "Project",
-              title: "Pet store",
-              reverseRelations: [],
-              relations: [
-                { id: "users", owns: true, stored: ["user1"] },
-                { id: "issues", owns: true, stored: ["issue1"] }
-              ],
-              attributes: [
-                { id: "name", stored: "Pet store" }
-              ]
-            },
-            {
-              id: "ussue1",
-              entity: "Issue",
-              title: "1: Become the next big thing",
-              reverseRelations: [
-                { id: "project", reverse:"issues", owner: true, stored: "project1" }
-              ],
-              relations: [
-                { id: "assignee", stored: "user1" }
-              ],
-              attributes: [
-                {id: "headline", stored: "Become the next big thing" },
-                {id: "issueNumber", stored: 1 }
-              ]
-            },
-            {
-              id: "user1",
-              entity: "User",
-              title: "Alice",
-              reverseRelations: [
-                { id: "project", reverse: "users", owner: true, stored: "project1" },
-                { id: "assignedIssues", reverse:"assignee", name: "assigned issues", stored: ["issue1"]}
-              ],
-              relations: [
-              ],
-              attributes: [
-                {id: "name", stored: "Alice" }
-              ]
+    var staticData = [
+      {
+        id: "project1",
+        entity: "Project",
+        title: "Pet store",
+        reverseRelations: [],
+        relations: [
+          { id: "users", owns: true, stored: ["user1"] },
+          { id: "issues", owns: true, stored: ["issue1"] }
+        ],
+        attributes: [
+          { id: "name", stored: "Pet store" }
+        ]
+      },
+      {
+        id: "issue1",
+        entity: "Issue",
+        title: "1: Become the next big thing",
+        reverseRelations: [
+          { id: "project", reverse: "issues", owner: true, stored: "project1" }
+        ],
+        relations: [
+          { id: "assignee", stored: "user1" }
+        ],
+        attributes: [
+          { id: "headline", stored: "Become the next big thing" },
+          { id: "issueNumber", stored: 1 }
+        ]
+      },
+      {
+        id: "user1",
+        entity: "User",
+        title: "Alice",
+        reverseRelations: [
+          { id: "project", reverse: "users", owner: true, stored: "project1" },
+          { id: "assignedIssues", reverse: "assignee", name: "assigned issues", stored: ["issue1"] }
+        ],
+        relations: [
+        ],
+        attributes: [
+          { id: "name", stored: "Alice" }
+        ]
+      }
+    ];
+
+    var dataSource = {
+      subscribe: function (instanceId, dataCallback) {
+        setTimeout(function () {
+          for(var i = 0; i < staticData.length; i++) {
+            if(staticData[i].id === instanceId) {
+              dataCallback(staticData[i]);
+              return;
             }
-          ]
-        }
-      );
-
-    </script>
+          }
+          dataCallback(null);
+        }, 0);
+        return {
+          dispose: function () {}
+        };
+      }
+    };
+      
+    var instanceGraph = window.createInstanceGraph($(document.body), "theGraph", dataSource, "project1");
+    instanceGraph.test();
+  </script>
 </body>
 </html>

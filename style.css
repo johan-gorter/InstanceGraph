@@ -39,6 +39,11 @@
   font-size: 15px;
 }
 
+.instance-graph .relation {
+  stroke: black;
+  stroke-width: 3;
+}
+
 .instance-graph .instance {
   fill: #000;
   cursor: move;
@@ -119,5 +124,19 @@
 }
 
 .instance-graph .dialog > h1 {
-  margin: 0;
+  margin: 0 0 10px 0;
+}
+
+.instance-graph .dialog > button {
+  margin: 0 0 10px 0;
+}
+
+.instance-graph .dialog > textarea {
+  width: 100%;
+  height: 400px;
+}
+
+.instance-graph .dialog > label {
+  display: block;
+  width: 100%;
 }
