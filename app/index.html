@@ -1,12 +1,13 @@
 ﻿<!DOCTYPE html>
 <html>
 <head>
-<title>Instance Graph test page</title>
+  <title>Instance Graph test page</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
-  <script src="lib/zepto.js"></script>
-  <script src="lib/d3.js"></script>
-  <script src="element.js"></script>
-  <script src="graph.js"></script>
+  <script src="bower_components/d3/d3.js"></script>
+
+  <script src="bower_components/angular/angular.js"></script>
+  <script src="js/controllers.js"></script>
+
   <style>
     * {
       box-sizing: border-box;
@@ -28,76 +29,80 @@
       overflow: hidden;
     }
   </style>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body class="instance-graph">
-    
-  <script>
 
-    var staticData = [
-      {
-        id: "project1",
-        entity: "Project",
-        title: "Pet store",
-        reverseRelations: [],
-        relations: [
-          { id: "users", owns: true, stored: ["user1"] },
-          { id: "issues", owns: true, stored: ["issue1"] }
-        ],
-        attributes: [
-          { id: "name", stored: "Pet store" }
-        ]
-      },
-      {
-        id: "issue1",
-        entity: "Issue",
-        title: "1: Become the next big thing",
-        reverseRelations: [
-          { id: "project", reverse: "issues", owner: true, stored: "project1" }
-        ],
-        relations: [
-          { id: "assignee", stored: "user1" }
-        ],
-        attributes: [
-          { id: "headline", stored: "Become the next big thing" },
-          { id: "issueNumber", stored: 1 }
-        ]
-      },
-      {
-        id: "user1",
-        entity: "User",
-        title: "Alice",
-        reverseRelations: [
-          { id: "project", reverse: "users", owner: true, stored: "project1" },
-          { id: "assignedIssues", reverse: "assignee", name: "assigned issues", stored: ["issue1"] }
-        ],
-        relations: [
-        ],
-        attributes: [
-          { id: "name", stored: "Alice" }
-        ]
-      }
-    ];
-
-    var dataSource = {
-      subscribe: function (instanceId, dataCallback) {
-        setTimeout(function () {
-          for(var i = 0; i < staticData.length; i++) {
-            if(staticData[i].id === instanceId) {
-              dataCallback(staticData[i]);
-              return;
-            }
-          }
-          dataCallback(null);
-        }, 0);
-        return {
-          dispose: function () {}
-        };
-      }
-    };
-      
-    var instanceGraph = window.createInstanceGraph($(document.body), "theGraph", dataSource, "project1");
-    instanceGraph.test();
-  </script>
+  <div class="svg-defs">
+    <svg>
+      <defs>
+        <lineargradient id="instance-gradient" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" class="instance-gradient-from"></stop><stop offset="100%" class="instance-gradient-to"></stop></lineargradient>
+        <lineargradient id="selected-instance-gradient" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" class="selected-instance-gradient-from"></stop><stop offset="100%" class="selected-instance-gradient-to"></stop></lineargradient>
+      </defs>
+    </svg>
+  </div>
+  <div class="chart" ng-app="instanceGraphApp">
+    <svg preserveAspectRatio="xMidYMid slice" viewBox="-600 -600 1200 1200" pointer-events="all" ng-controller="sceneCtrl">
+      <g class="handle-zoom" handle-zoom="">
+        <rect class="background" x="-600" y="-600" width="1200" height="1200" fill="transparent"></rect>
+        <g class="visualization">
+          <g>
+            <path class="relation" d="M80,43 L220,41"></path>
+            <path class="relation" d="M80,43 L220,41"></path>
+            <path class="relation" d="M80,63 L220,101"></path>
+            <path class="relation" d="M80,63 L220,101"></path>
+          </g>
+          <g>
+            <g class="instance focus" ng-repeat="instance in instances"
+               ng-attr-transform="translate({{x}},{{y}})"
+               ng-controller="instanceCtrl"
+               ng-init="load(instance)"
+               ng-mousedown="beginDrag($event)"
+               ng-touchstart="beginTouchDrag($event)">
+              <rect class="background" x="-80" y="0" width="160" ng-attr-height="{{height}}" rx="10" ry="10"></rect>
+              <g transform="translate(-75, 5)">
+                <path class="expand-collapse" d="M5,8 l 5,3 l 5,-3" transform="rotate(180 10 9)"></path>
+                <rect class="button" x="0" y="0" width="18" height="20"></rect>
+              </g>
+              <clippath id="clip-project1">
+                <rect x="-60" y="0" width="130" ng-attr-height="{{height}}"></rect>
+              </clippath>
+              <clippath id="clip-key-project1">
+                <rect x="-70" y="0" width="65" ng-attr-height="{{height}}"></rect>
+              </clippath>
+              <clippath id="clip-value-project1">
+                <rect x="5" y="0" width="65" ng-attr-height="{{height}}"></rect>
+              </clippath>
+              <text class="title" clip-path="url(#clip-project1)" text-anchor="left" x="-55" y="4" dy="15" pointer-events="none">{{instanceData.title}}</text>
+              <line x1="-80" y1="30" x2="80" y2="30" class="separator"></line>
+              <g transform="translate(0, 31)">
+                <g class="attribute" ng-class="{selected:attributeCtrl.isSelected()}"
+                   ng-click="attributeCtrl.click($event)"
+                   ng-attr-transform="translate(0, {{20*$index}})"
+                   ng-repeat="attribute in instanceData.reverseRelations" instance-attribute>
+                </g>
+              </g>
+              <line x1="-80" ng-attr-y1="{{relationsStartY}}" x2="80" ng-attr-y2="{{relationsStartY}}" class="separator"></line>
+              <g ng-attr-transform="translate(0, {{relationsStartY+1}})">
+                <g class="attribute" ng-class="{selected:attributeCtrl.isSelected()}"
+                   ng-click="attributeCtrl.click($event)"
+                   ng-attr-transform="translate(0, {{20*$index}})"
+                   ng-repeat="attribute in instanceData.relations" instance-attribute>
+                </g>
+              </g>
+              <line x1="-80" ng-attr-y1="{{attributesStartY}}" x2="80" ng-attr-y2="{{attributesStartY}}" class="separator"></line>
+              <g ng-attr-transform="translate(0, {{attributesStartY+1}})">
+                <g class="attribute" ng-class="{selected:attributeCtrl.isSelected()}"
+                   ng-click="attributeCtrl.click($event)"
+                   ng-attr-transform="translate(0, {{20*$index}})"
+                   ng-repeat="attribute in instanceData.attributes" instance-attribute>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </svg>
+  </div>
 </body>
 </html>
