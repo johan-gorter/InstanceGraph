@@ -1,0 +1,41 @@
+<rect class="background" x="-80" y="0" width="160" ng-attr-height="{{height}}" rx="10" ry="10"></rect>
+
+<clippath id="clip-project1">
+  <rect x="-60" y="0" width="130" ng-attr-height="{{height}}"></rect>
+</clippath>
+<clippath id="clip-key-project1">
+  <rect x="-70" y="0" width="65" ng-attr-height="{{height}}"></rect>
+</clippath>
+<clippath id="clip-value-project1">
+  <rect x="5" y="0" width="65" ng-attr-height="{{height}}"></rect>
+</clippath>
+<text class="title" clip-path="url(#clip-project1)" text-anchor="left" x="-55" y="4" dy="15" pointer-events="none">{{instanceData.title}}</text>
+<line x1="-80" y1="30" x2="80" y2="30" class="separator"></line>
+<g transform="translate(0, 31)">
+  <g class="attribute" ng-class="{selected:attributeCtrl.isSelected()}"
+     ng-click="attributeCtrl.click($event)"
+     ng-attr-transform="translate(0, {{20*$index}})"
+     ng-repeat="attribute in instanceData.reverseRelations" instance-attribute>
+  </g>
+</g>
+<line x1="-80" ng-attr-y1="{{relationsStartY}}" x2="80" ng-attr-y2="{{relationsStartY}}" class="separator"></line>
+<g ng-attr-transform="translate(0, {{relationsStartY+1}})">
+  <g class="attribute" ng-class="{selected:attributeCtrl.isSelected()}"
+     ng-click="attributeCtrl.click($event)"
+     ng-attr-transform="translate(0, {{20*$index}})"
+     ng-repeat="attribute in instanceData.relations" instance-attribute>
+  </g>
+</g>
+<line x1="-80" ng-attr-y1="{{attributesStartY}}" x2="80" ng-attr-y2="{{attributesStartY}}" class="separator"></line>
+<g ng-attr-transform="translate(0, {{attributesStartY+1}})">
+  <g class="attribute" ng-class="{selected:attributeCtrl.isSelected()}"
+     ng-click="attributeCtrl.click($event)"
+     ng-attr-transform="translate(0, {{20*$index}})"
+     ng-repeat="attribute in instanceData.attributes" instance-attribute>
+  </g>
+</g>
+
+<g ng-attr-transform="translate(-10, {{height-8}})" ng-click="instanceCtrl.toggleExpand()">
+  <path class="expand-collapse" d="M 5,2 l 5,3 l 5,-3" ng-attr-transform="rotate({{instanceCtrl.isExpanded()?180:0}} 10 4)"></path>
+  <rect class="button" x="0" y="0" width="20" height="8" fill="transparent"></rect>
+</g>

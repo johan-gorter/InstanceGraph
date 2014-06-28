@@ -131,47 +131,59 @@
       }
     ];
   });
-
-  app.controller('instanceCtrl', function ($scope) {
-
-    var currentDrag = null; // {startX, startY}
-
-    $scope.load = function (initData) {
-      $scope.id = initData.id;
-      $scope.x = initData.x;
-      $scope.y = initData.y;
-      $scope.height = 45;
-      $scope.selectedAttributes = {};
-      $scope.instanceData = {}; // loads async
-      dataSource.subscribe($scope.id, function (data) {
-        $scope.$apply(function (scope) {
-          scope.instanceData = data;
-          scope.height = 45 + (data.reverseRelations.length + data.relations.length + data.attributes.length) * 20;
-          scope.relationsStartY = 32 + (data.reverseRelations.length) * 20;
-          scope.attributesStartY = 34 + (data.reverseRelations.length + data.relations.length) * 20;
-        });
-      });
-    };
-
-    $scope.beginDrag = function (evt) {
-      if(currentDrag == null) {
-        currentDrag = { startX: $scope.x, startY: $scope.y };
-        $scope.followMouseDrag(evt, function (dx, dy) {
+  app.directive('instance', function () {
+    return {
+      restrict: 'A',
+      controller: function ($scope) {      
+        var currentDrag = null; // {startX, startY}
+        var expanded = false;
+        var initData = $scope.instance;
+        $scope.id = initData.id;
+        $scope.x = initData.x;
+        $scope.y = initData.y;
+        $scope.height = 45;
+        $scope.selectedAttributes = {};
+        $scope.instanceData = {}; // loads async
+        dataSource.subscribe($scope.id, function (data) {
           $scope.$apply(function (scope) {
-            scope.x = currentDrag.startX + dx / $scope.scale;
-            scope.y = currentDrag.startY + dy / $scope.scale;
+            scope.instanceData = data;
+            scope.height = 45 + (data.reverseRelations.length + data.relations.length + data.attributes.length) * 20;
+            scope.relationsStartY = 32 + (data.reverseRelations.length) * 20;
+            scope.attributesStartY = 34 + (data.reverseRelations.length + data.relations.length) * 20;
           });
-        }, function () {
-          currentDrag = null;
         });
-      }
-      evt.stopPropagation();
-    };
 
-    $scope.beginTouchDrag = function (evt) {
-      //TODO
-      evt.stopPropagation();
-    };
+        return {
+          isExpanded: function() {
+            return expanded;  
+          },
+          toggleExpand: function() {
+            expanded = !expanded;  
+          },
+          beginDrag: function (evt) {
+            if(currentDrag === null) {
+              currentDrag = { startX: $scope.x, startY: $scope.y };
+              $scope.followMouseDrag(evt, function (dx, dy) {
+                $scope.$apply(function (scope) {
+                  scope.x = currentDrag.startX + dx / $scope.scale;
+                  scope.y = currentDrag.startY + dy / $scope.scale;
+                });
+              }, function () {
+                currentDrag = null;
+              });
+            }
+            evt.stopPropagation();
+          },
+
+          beginTouchDrag: function (evt) {
+            //TODO
+            evt.stopPropagation();
+          }
+        };
+      },
+      controllerAs: 'instanceCtrl',
+      templateUrl: 'partials/instance.html'
+    }
   });
 
   app.directive('instanceAttribute', function () {

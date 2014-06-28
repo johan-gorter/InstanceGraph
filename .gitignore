@@ -179,3 +179,4 @@ Desktop.ini
 $RECYCLE.BIN/
 
 app/bower_components
+/nbproject/private/
