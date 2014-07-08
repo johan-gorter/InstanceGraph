@@ -1,0 +1,98 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<title>Fragment playground</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+  <script src="lib/zepto.js"></script>
+  <script src="lib/d3.js"></script>
+  <script src="element.js"></script>
+  <script src="fragment.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    body {
+      font: 13px sans-serif;
+      position: relative;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+  </style>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <script>
+    $(function () {
+      var errorDiv = $("#error");
+      var sourceTextarea = $("#source");
+      var renderingDiv = $("#rendering");
+
+      var appendToRendering = function (element) {
+        renderingDiv.append(element);
+      };
+
+      var error = null;
+      var rootFragment = null;
+      var rootFragmentType = null;
+      var fragmentFactory = window.fragment.createFragmentFactory([window.fragment.coreFragmentLibrary]);
+      function render() {
+        try {
+          var data = JSON.parse($("#source").val());
+          if(rootFragmentType !== data.type) {
+            if(rootFragment) {
+              rootFragment.destroy();
+              renderingDiv.empty();
+            }
+            rootFragment = fragmentFactory.createRootFragment(appendToRendering, data.type);
+            rootFragmentType = data.type;
+            rootFragment.init(data);
+          } else {
+            var diff = window.fragment.createDiff();
+            rootFragment.update(data, diff);
+            diff.applyNow();
+          }
+          if (error) {
+            // error was resolved
+            error = null;
+            errorDiv.css("display", "none");
+            sourceTextarea.css("border-color", "");
+          }
+        } catch (exception) {
+          if(error !== exception.message) {
+            error = exception.message;
+            errorDiv.text(error);
+            errorDiv.css("display", "");
+            sourceTextarea.css("border", "solid 1px red");
+          }
+        }
+      }
+
+      sourceTextarea.on("keyup", render);
+
+      render();
+    });
+
+  </script>
+  <div style="height:50%;position:relative;">
+    <textarea id="source" style="width:100%;height:100%;border:solid 1px blue">
+{"type":"fieldSet", "id": "0", "title": "Enter your data", "content": [
+  {"type":"noInspiration", "id": "0-0"}
+]}
+    </textarea>
+  </div>
+  <div id="error" style="position: absolute;left:0;width:auto;bottom:50%;color:white;background-color:red;padding:5px;display:none;"></div>
+  <div id="rendering" style="height:50%;position: relative;">
+    
+  </div>
+</body>
+</html>

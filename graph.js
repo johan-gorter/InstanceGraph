@@ -9,13 +9,14 @@
   // definitions
   var html = $.element.html;
   var svg = $.element.svg;
+  var createFragmentType = window.fragment.createFragmentType;
 
-  // Using jQuery, wrapping d3 functionality when needed.
+  // Using zepto, borrowing from d3 when needed.
   var initZoom = function (handleZoom, visualization, onRescale) {
 
     var rescale = function () {
-      var trans = d3.event.translate;
-      var scale = d3.event.scale;
+      var trans = window.d3.event.translate;
+      var scale = window.d3.event.scale;
       visualization
         .attr("transform",
           "translate(" + trans + ")"
@@ -23,8 +24,8 @@
       onRescale(scale, trans);
     };
 
-    d3.select(handleZoom[0])
-      .call(d3.behavior.zoom().on("zoom", rescale))
+    window.d3.select(handleZoom[0])
+      .call(window.d3.behavior.zoom().on("zoom", rescale))
       .on("dblclick.zoom", null);
   };
 
@@ -45,43 +46,186 @@
   var createInstance = function (appendTo, id, graph, dataSource, pos) {
     var model = null;
     var focussed = false;
-    var reverseRelations = [];
-    var relations = [];
-    var attributes = [];
+    var getReverseRelations;
+    var getRelations;
+    var getAttributes ;
     var afterLoad = {};
     var x = pos ? pos[0] : 0;
     var y = pos ? pos[1] : 0;
-    var backgroundRect, titleText, reverseRelationsGroup, relationsGroup, attributesGroup, separator2, separator3, clipPath, keyClipPath, valueClipPath, expandCollapsePath, expandCollapseGroup;
-    var rootGroup = svg.g({"class": "instance"},
-      backgroundRect = svg.rect({ "class": "background", x: "-80", y: "0", width: "160", height: "40", rx: "10", ry: "10" }),
-      expandCollapseGroup = svg.g({transform: "translate(-75, 5)"},
-        expandCollapsePath = svg.path({"class":"expand-collapse", d: "M5,8 l 5,3 l 5,-3"}),
-        svg.rect({ "class": "button", x: "0", y: "0", width: "18", height: "20" })
+    var positionData = {
+      visibleReverseRelationsCount: 0,
+      visibleRelationsCount: 0,
+      visibleAttributesCount: 0,
+      totalHeight: 45
+    };
+    var bindings = [];
+    var bindingFactory = window.fragment.createBindingFactory(bindings);
+    var positionBindings = [];
+    var positionBindingFactory = window.fragment.createBindingFactory(positionBindings);
+
+    var api = {
+      id: id,
+      getPosition: function () {
+        return [x, y];
+      },
+      getRelations: function () {
+        return getRelations(); // temporary for testing
+      }, 
+      render: function () {
+        updatePositionData();
+        positionEverything();
+      },
+      getId: function () {
+        return id;
+      },
+      getGraph: function () {
+        return graph;
+      },
+      setFocus: function (focus) {
+        focussed = focus;
+        if (focus) {
+          rootGroup.addClass("focus");
+          expandCollapsePath.attr("transform", "rotate(180 10 4)");
+          updatePositionData();
+          positionEverything();
+        } else {
+          rootGroup.removeClass("focus");
+          expandCollapsePath.attr("transform", "");
+          updatePositionData();
+          positionEverything();
+        }
+      },
+      showReverseOf: function (relation, relationIsReverse) {
+        if (model) {
+          showReverseOf(relation, relationIsReverse);
+        } else {
+          afterLoad.showReverseOf = relation;
+          afterLoad.showReverseOfIsReverse = relationIsReverse;
+        }
+      },
+      getRelationPosition: function (relation, relationIsReverse, anchor) {
+        if (!model) {
+          return [x, y];
+        }
+        var offset = relationIsReverse ? 31 : 33;
+        if (!relationIsReverse) {
+          getReverseRelations().forEach(function (reverseRelation) {
+            if (focussed || reverseRelation.isSelected()) {
+              offset += 20;
+            }
+          });
+        }
+        offset = offset + relation.getIndex() * 20;
+        return [x + (anchor === "right" ? 80 : -80), y + offset + 10];
+      },
+      dispose: function () {
+        getRelations().forEach(function (relation) {
+          relation.setSelected(false);
+        });
+        getReverseRelations().forEach(function (relation) {
+          relation.setSelected(false);
+        });
+        rootGroup.remove();
+        subscription.dispose();
+      }
+    };
+
+    var createAttributeFactory = function (attributeType) {
+      return {
+        createFragment: function (dummyType, append, id, instance) {
+          return createAttribute(append, id, attributeType, instance);
+        }
+      };
+    };
+
+    // the bindings and markup
+    var separator2Y = positionBindingFactory.attribute(function (data) {
+      return "" + (data.visibleReverseRelationsCount * 20 + 32);
+    });
+
+    var relationsGroupTransform = positionBindingFactory.attribute(function (data) {
+      return "translate(0, " + (data.visibleReverseRelationsCount * 20 + 33) + ")";
+    });
+
+    var separator3Y = positionBindingFactory.attribute(function (data) {
+      return "" + ((data.visibleReverseRelationsCount + data.visibleRelationsCount) * 20 + 34);
+    });
+
+    var attributesGroupTransform = positionBindingFactory.attribute(function (data) {
+      return "translate(0, " + ((data.visibleReverseRelationsCount + data.visibleRelationsCount) + 35) + ")";
+    });
+
+    var expandCollapseTransform = positionBindingFactory.attribute(function (data) {
+      return "translate(-10, " + (data.totalHeight - 9) + ")";
+    });
+
+    var expandCollapsePath, expandCollapseGroup;
+    var rootGroup = svg.g({ "class": "instance" },
+      svg.rect({ "class": "background", x: "-80", y: "0", width: "160", height: positionBindingFactory.attribute("totalHeight"), rx: "10", ry: "10" }),
+      svg.clipPath({ id: "clip-" + id }, svg.rect({ x: "-60", y: "0", width: "130", height: positionBindingFactory.attribute("totalHeight") })),
+      svg.clipPath({ id: "clip-key-" + id }, svg.rect({ x: "-70", y: "0", width: "65", height: positionBindingFactory.attribute("totalHeight") })),
+      svg.clipPath({ id: "clip-value-" + id }, svg.rect({ x: "5", y: "0", width: "65", height: positionBindingFactory.attribute("totalHeight") })),
+      svg.text({ "class": "title", "clip-path": "url(#clip-" + id + ")", "text-anchor": "left", x: "-55", y: "4", dy: "15", "pointer-events": "none" },
+        bindingFactory.text("title")
       ),
-      svg.clipPath({ id: "clip-" + id }, clipPath = svg.rect({ x: "-60", y: "0", width: "130", height: "40" })),
-      svg.clipPath({ id: "clip-key-" + id }, keyClipPath = svg.rect({ x: "-70", y: "0", width: "65", height: "40" })),
-      svg.clipPath({ id: "clip-value-" + id }, valueClipPath = svg.rect({ x: "5", y: "0", width: "65", height: "40" })),
-      titleText = svg.text({ "class": "title", "clip-path": "url(#clip-" + id + ")", "text-anchor": "left", x: "-55", y: "4", dy: "15", "pointer-events": "none" }, ""),
-      svg.line({x1:"-80", y1: "30", "x2": "80", y2: "30", "class": "separator" }),
-      reverseRelationsGroup = svg.g({"transform": "translate(0,30)"}),
-      separator2 = svg.line({ x1: "-80", y1: "32", "x2": "80", y2: "32", "class": "separator" }),
-      relationsGroup = svg.g({ "transform": "translate(0,30)" }),
-      separator3 = svg.line({ x1: "-80", y1: "34", "x2": "80", y2: "34", "class": "separator" }),
-      attributesGroup = svg.g({ "transform": "translate(0,30)" })
+      svg.line({ x1: "-80", y1: "30", "x2": "80", y2: "30", "class": "separator" }),
+      svg.g({ "transform": "translate(0,31)" },
+        bindingFactory.fragmentPerItem("reverseRelations", api, createAttributeFactory("reverseRelation"), function (getChildFragments) { getReverseRelations = getChildFragments; })
+      ),
+      svg.line({ x1: "-80", y1: separator2Y, "x2": "80", y2: separator2Y, "class": "separator" }),
+      svg.g({ "transform": relationsGroupTransform },
+        bindingFactory.fragmentPerItem("relations", api, createAttributeFactory("relation"), function (getChildFragments) { getRelations = getChildFragments; })
+      ),
+      svg.line({ x1: "-80", y1: separator3Y, "x2": "80", y2: separator3Y, "class": "separator" }),
+      svg.g({ "transform": attributesGroupTransform },
+        bindingFactory.fragmentPerItem("attributes", api, createAttributeFactory("attribute"), function (getChildFragments) { getAttributes = getChildFragments; })
+      ),
+      expandCollapseGroup = svg.g({ transform: expandCollapseTransform },
+        expandCollapsePath = svg.path({ "class": "expand-collapse", d: "M5,3 l 5,3 l 5,-3" }),
+        svg.rect({ "class": "button", x: "0", y: "0", width: "20", height: "8" })
+      )
     );
 
+    var updatePositionData = function () {
+      if(!getReverseRelations) return;
+      positionData.visibleReverseRelationsCount = 0;
+      getReverseRelations().forEach(function (item) {
+        if (focussed || item.isSelected()) {
+          item.setIndex(positionData.visibleReverseRelationsCount++);
+        } else {
+          item.setIndex(-1);
+        }
+      });
+      positionData.visibleRelationsCount = 0;
+      getRelations().forEach(function (item) {
+        if (focussed || item.isSelected()) {
+          item.setIndex(positionData.visibleRelationsCount++);
+        } else {
+          item.setIndex(-1);
+        }
+      });
+      positionData.visibleAttributesCount = 0;
+      getAttributes().forEach(function (item) {
+        if (focussed || item.isSelected()) {
+          item.setIndex(positionData.visibleAttributesCount++);
+        } else {
+          item.setIndex(-1);
+        }
+      });
+      positionData.totalHeight =
+        (positionData.visibleReverseRelationsCount + positionData.visibleRelationsCount + positionData.visibleAttributesCount) * 20 + 45;
+    };
+
     function renderPosition() {
+      // moves the group into x,y
       rootGroup.attr("transform", "translate(" + x + "," + y + ")");
       graph.renderRelations();
     }
 
-    renderPosition();
-
-    function initAttributes(group, type, items, datas) {
-      datas.forEach(function (data) {
-        var attribute = createAttribute(group, data.id, type, api);
-        items.push(attribute);
-        attribute.init(data);
+    function positionEverything() {
+      // positions everything inside the group
+      positionBindings.forEach(function (binding) {
+        binding.update(positionData, window.fragment.immediateDiff);
       });
     };
 
@@ -149,44 +293,17 @@
 
     appendTo.append(rootGroup);
 
-    function positionAttributes(group, items, offset, indexOffset) {
-      group.attr("transform", "translate(0, " + (offset + indexOffset * 20) + ")");
-      var index = 0;
-      items.forEach(function (item) {
-        if (focussed || item.isSelected()) {
-          item.setIndex(index++);
-        } else {
-          item.setIndex(-1);
-        }
-      });
-      return indexOffset+index;
-    }
-
-    var positionEverything = function () {
-      var indexOffset = 0;
-      indexOffset = positionAttributes(reverseRelationsGroup, reverseRelations, 31, indexOffset);
-      separator2.attr("y1", indexOffset * 20 + 32).attr("y2", indexOffset * 20 + 32);
-      indexOffset = positionAttributes(relationsGroup, relations, 33, indexOffset);
-      separator3.attr("y1", indexOffset * 20 + 34).attr("y2", indexOffset * 20 + 34);
-      indexOffset = positionAttributes(attributesGroup, attributes, 35, indexOffset);
-      backgroundRect.attr("height", indexOffset * 20 + 45);
-      clipPath.attr("height", indexOffset * 20 + 45);
-      keyClipPath.attr("height", indexOffset * 20 + 45);
-      valueClipPath.attr("height", indexOffset * 20 + 45);
-      graph.renderRelations();
-    };
-
     var showReverseOf = function (otherRelation, otherRelationIsReverse) {
       if(otherRelationIsReverse) {
         var reverseId = otherRelation.getReverseOf();
-        relations.forEach(function (relation) {
+        getRelations().forEach(function (relation) {
           if(relation.id === reverseId) {
             relation.setSelected(true);
             graph.addVisibleRelation(relation, otherRelation);
           }
         });
       } else {
-        reverseRelations.forEach(function (relation) {
+        getReverseRelations().forEach(function (relation) {
           if (relation.getReverseOf() === otherRelation.id) {
             relation.setSelected(true);
             graph.addVisibleRelation(otherRelation, relation);
@@ -195,83 +312,31 @@
       }
     };
 
+    // Initialization
+
+    renderPosition();
+    positionEverything();
+
     // listen to the dataSource
     var subscription = dataSource.subscribe(id, function (data) {
       model = data;
       if(!data) {
         graph.hideInstance(id); // calls our dispose()
       } else {
-        titleText.text(data.title);
-        initAttributes(reverseRelationsGroup, "reverseRelation", reverseRelations, data.reverseRelations);
-        initAttributes(relationsGroup, "relation", relations, data.relations);
-        initAttributes(attributesGroup, "attribute", attributes, data.attributes);
+        bindings.forEach(function (binding) {
+          binding.update(data, window.fragment.immediateDiff);
+        });
         if(afterLoad.showReverseOf) {
           showReverseOf(afterLoad.showReverseOf, afterLoad.showReverseOfIsReverse);
+          afterLoad = {};
         }
+        updatePositionData();
         positionEverything();
         graph.renderRelations();
       }
     });
 
-    var api = {
-      id: id,
-      getPosition: function () {
-        return [x, y];
-      },
-      relations: relations, // temporary for testing
-      render: positionEverything,
-      getId: function () {
-        return id;
-      },
-      getGraph: function () {
-        return graph;
-      },
-      setFocus: function (focus) {
-        focussed = focus;
-        if(focus) {
-          rootGroup.addClass("focus");
-          expandCollapsePath.attr("transform", "rotate(180 10 9)");
-          positionEverything();
-        } else {
-          rootGroup.removeClass("focus");
-          expandCollapsePath.attr("transform", "");
-          positionEverything();
-        }
-      },
-      showReverseOf: function(relation, relationIsReverse) {
-        if(model) {
-          showReverseOf(relation, relationIsReverse);
-        } else {
-          afterLoad.showReverseOf = relation;
-          afterLoad.showReverseOfIsReverse = relationIsReverse;
-        }
-      },
-      getRelationPosition: function (relation, relationIsReverse, anchor) {
-        if(!model) {
-          return [x, y];
-        }
-        var offset = relationIsReverse ? 31 : 33;
-        if(!relationIsReverse) {
-          reverseRelations.forEach(function (reverseRelation) {
-            if(focussed || reverseRelation.isSelected()) {
-              offset += 20;
-            }
-          });
-        }
-        offset = offset + relation.getIndex() * 20;
-        return [x + (anchor === "right" ? 80 : -80), y + offset + 10];
-      },
-      dispose: function () {
-        relations.forEach(function (relation) {
-          relation.setSelected(false);
-        });
-        reverseRelations.forEach(function (relation) {
-          relation.setSelected(false);
-        });
-        rootGroup.remove();
-        subscription.dispose();
-      }
-    };
+
     return api;
   };
 
@@ -281,7 +346,7 @@
 
 
 
-  var createAttribute = function (appendTo, id, type, instance) {
+  var createAttribute = function (append, id, type, instance) {
     var model = null;
     var index = -1;
     var backgroundRect, nameText, valueText;
@@ -357,7 +422,7 @@
       }
     });
 
-    appendTo.append(rootGroup);
+    append(rootGroup);
 
     var api = {
       id: id,
@@ -457,8 +522,6 @@
     var onRescale = function (newScale) {
       scale = newScale;
     };
-
-    // Utility functions
 
     // Initialization
     var handleZoom, backgroundElement, visualization, instancesGroup, relationsGroup;
@@ -589,7 +652,7 @@
       test: function () {
         setTimeout(function () {
           parentApi.requestFocus(instances[0]);
-          instances[0].relations.forEach(function (relation, index) {
+          instances[0].getRelations().forEach(function (relation, index) {
             relation.setSelected(true);
             var value = relation.getValue();
             if (value instanceof Array) {

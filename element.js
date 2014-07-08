@@ -14,8 +14,10 @@
     for (var attribute in attributes) {
       if (attributes.hasOwnProperty(attribute)) {
         var value = attributes[attribute];
-        if (value !== null && value !== undefined) {
-          element[0][attribute] = value;
+        if(typeof value === "function") {
+          value(element, attribute); // call this function on us
+        } else if (value !== null && value !== undefined) {
+          element[0].setAttribute(attribute, value);
         }
       }
     }
@@ -33,10 +35,11 @@
         addChildNodes(element, child, false);
       } else if (child instanceof $) {
       	element.append(child);
+      } else if (typeof child === "function") {
+        child(element); // call this function on us
       } else if (i === 0 && !child.nodeName && isRoot) { // Attributes object
-        //setAttributes(element, child);
-        element.attr(child);
-      } else if (child.nodeName) { // HTMLElement
+        setAttributes(element, child);
+      } else if(child.nodeName) { // HTMLElement
         element.append(child);
       } else {
         throw new Error('Cannot create child node from "' + child + '"');
