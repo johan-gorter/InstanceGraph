@@ -44,7 +44,6 @@
 
 
   var createInstance = function (appendTo, id, graph, dataSource, pos) {
-    var model = null;
     var focussed = false;
     var getReverseRelations;
     var getRelations;
@@ -52,16 +51,18 @@
     var afterLoad = {};
     var x = pos ? pos[0] : 0;
     var y = pos ? pos[1] : 0;
-    var positionData = {
+    var data = null;
+    var bindings = [];
+    var bindingFactory = window.fragment.createBindingFactory(bindings);
+    var layoutData = {
+      width: 160,
       visibleReverseRelationsCount: 0,
       visibleRelationsCount: 0,
       visibleAttributesCount: 0,
       totalHeight: 45
     };
-    var bindings = [];
-    var bindingFactory = window.fragment.createBindingFactory(bindings);
-    var positionBindings = [];
-    var positionBindingFactory = window.fragment.createBindingFactory(positionBindings);
+    var layoutBindings = [];
+    var layoutBindingFactory = window.fragment.createBindingFactory(layoutBindings);
 
     var api = {
       id: id,
@@ -72,8 +73,8 @@
         return getRelations(); // temporary for testing
       }, 
       render: function () {
-        updatePositionData();
-        positionEverything();
+        updateLayoutData();
+        layoutEverything();
       },
       getId: function () {
         return id;
@@ -86,17 +87,17 @@
         if (focus) {
           rootGroup.addClass("focus");
           expandCollapsePath.attr("transform", "rotate(180 10 4)");
-          updatePositionData();
-          positionEverything();
+          updateLayoutData();
+          layoutEverything();
         } else {
           rootGroup.removeClass("focus");
           expandCollapsePath.attr("transform", "");
-          updatePositionData();
-          positionEverything();
+          updateLayoutData();
+          layoutEverything();
         }
       },
       showReverseOf: function (relation, relationIsReverse) {
-        if (model) {
+        if (data) {
           showReverseOf(relation, relationIsReverse);
         } else {
           afterLoad.showReverseOf = relation;
@@ -104,7 +105,7 @@
         }
       },
       getRelationPosition: function (relation, relationIsReverse, anchor) {
-        if (!model) {
+        if (!data) {
           return [x, y];
         }
         var offset = relationIsReverse ? 31 : 33;
@@ -116,7 +117,7 @@
           });
         }
         offset = offset + relation.getIndex() * 20;
-        return [x + (anchor === "right" ? 80 : -80), y + offset + 10];
+        return [x + (anchor === "right" ? layoutData.width/2 : -layoutData.width/2), y + offset + 10];
       },
       dispose: function () {
         getRelations().forEach(function (relation) {
@@ -139,81 +140,79 @@
     };
 
     // the bindings and markup
-    var separator2Y = positionBindingFactory.attribute(function (data) {
-      return "" + (data.visibleReverseRelationsCount * 20 + 32);
-    });
+    var separator2Y = layoutBindingFactory.attribute(function (d) { return (d.visibleReverseRelationsCount * 20 + 32); });
+    var relationsGroupTransform = layoutBindingFactory.attribute(function (d) { return "translate(0, " + (d.visibleReverseRelationsCount * 20 + 33) + ")"; });
+    var separator3Y = layoutBindingFactory.attribute(function (d) { return ((d.visibleReverseRelationsCount + d.visibleRelationsCount) * 20 + 34); });
+    var attributesGroupTransform = layoutBindingFactory.attribute(function (d) { return "translate(0, " + ((d.visibleReverseRelationsCount + d.visibleRelationsCount)*20 + 35) + ")"; });
+    var expandCollapseTransform = layoutBindingFactory.attribute(function (d) { return "translate(-10, " + (d.totalHeight - 9) + ")"; });
+    var backgroundX = layoutBindingFactory.attribute(function (d) { return -d.width/2; });
+    var textStartX = layoutBindingFactory.attribute(function (d) { return 10 - d.width / 2;});
+    var textColumnWidth = layoutBindingFactory.attribute(function (d) { return d.width / 2 - 15; });
+    var textWidth = layoutBindingFactory.attribute(function (d) { return d.width - 20; });
+    var width = layoutBindingFactory.attribute("width");
+    var totalHeight = layoutBindingFactory.attribute("totalHeight");
+    var lineStartX = layoutBindingFactory.attribute(function (d) { return -d.width/2; });
+    var lineEndX = layoutBindingFactory.attribute(function (d) { return d.width / 2; });
 
-    var relationsGroupTransform = positionBindingFactory.attribute(function (data) {
-      return "translate(0, " + (data.visibleReverseRelationsCount * 20 + 33) + ")";
-    });
-
-    var separator3Y = positionBindingFactory.attribute(function (data) {
-      return "" + ((data.visibleReverseRelationsCount + data.visibleRelationsCount) * 20 + 34);
-    });
-
-    var attributesGroupTransform = positionBindingFactory.attribute(function (data) {
-      return "translate(0, " + ((data.visibleReverseRelationsCount + data.visibleRelationsCount) + 35) + ")";
-    });
-
-    var expandCollapseTransform = positionBindingFactory.attribute(function (data) {
-      return "translate(-10, " + (data.totalHeight - 9) + ")";
-    });
-
-    var expandCollapsePath, expandCollapseGroup;
+    var expandCollapsePath, expandCollapseGroup, resizeRect;
     var rootGroup = svg.g({ "class": "instance" },
-      svg.rect({ "class": "background", x: "-80", y: "0", width: "160", height: positionBindingFactory.attribute("totalHeight"), rx: "10", ry: "10" }),
-      svg.clipPath({ id: "clip-" + id }, svg.rect({ x: "-60", y: "0", width: "130", height: positionBindingFactory.attribute("totalHeight") })),
-      svg.clipPath({ id: "clip-key-" + id }, svg.rect({ x: "-70", y: "0", width: "65", height: positionBindingFactory.attribute("totalHeight") })),
-      svg.clipPath({ id: "clip-value-" + id }, svg.rect({ x: "5", y: "0", width: "65", height: positionBindingFactory.attribute("totalHeight") })),
-      svg.text({ "class": "title", "clip-path": "url(#clip-" + id + ")", "text-anchor": "left", x: "-55", y: "4", dy: "15", "pointer-events": "none" },
+      svg.rect({
+        "class": "background", x: backgroundX, y: "0",
+        width: width, height: layoutBindingFactory.attribute("totalHeight"), rx: "10", ry: "10"
+      }),
+      svg.clipPath({ id: "clip-" + id }, svg.rect({ x: textStartX, y: "0", width: textWidth, height: totalHeight })),
+      svg.clipPath({ id: "clip-key-" + id }, svg.rect({ x: textStartX, y: "0", width: textColumnWidth, height: totalHeight })),
+      svg.clipPath({ id: "clip-value-" + id }, svg.rect({ x: "5", y: "0", width: textColumnWidth, height: totalHeight })),
+      svg.text({ "class": "title", "clip-path": "url(#clip-" + id + ")", "text-anchor": "left", x: textStartX, y: "4", dy: "15", "pointer-events": "none" },
         bindingFactory.text("title")
       ),
-      svg.line({ x1: "-80", y1: "30", "x2": "80", y2: "30", "class": "separator" }),
+      svg.line({ x1: lineStartX, y1: "30", "x2": lineEndX, y2: "30", "class": "separator" }),
       svg.g({ "transform": "translate(0,31)" },
         bindingFactory.fragmentPerItem("reverseRelations", api, createAttributeFactory("reverseRelation"), function (getChildFragments) { getReverseRelations = getChildFragments; })
       ),
-      svg.line({ x1: "-80", y1: separator2Y, "x2": "80", y2: separator2Y, "class": "separator" }),
+      svg.line({ x1: lineStartX, y1: separator2Y, "x2": lineEndX, y2: separator2Y, "class": "separator" }),
       svg.g({ "transform": relationsGroupTransform },
         bindingFactory.fragmentPerItem("relations", api, createAttributeFactory("relation"), function (getChildFragments) { getRelations = getChildFragments; })
       ),
-      svg.line({ x1: "-80", y1: separator3Y, "x2": "80", y2: separator3Y, "class": "separator" }),
+      svg.line({ x1: lineStartX, y1: separator3Y, "x2": lineEndX, y2: separator3Y, "class": "separator" }),
       svg.g({ "transform": attributesGroupTransform },
         bindingFactory.fragmentPerItem("attributes", api, createAttributeFactory("attribute"), function (getChildFragments) { getAttributes = getChildFragments; })
       ),
+      resizeRect = svg.rect({x: lineEndX, y: 0, width: 5, height: totalHeight, fill: "transparent", cursor: "ew-resize"}),
       expandCollapseGroup = svg.g({ transform: expandCollapseTransform },
         expandCollapsePath = svg.path({ "class": "expand-collapse", d: "M5,3 l 5,3 l 5,-3" }),
         svg.rect({ "class": "button", x: "0", y: "0", width: "20", height: "8" })
       )
     );
 
-    var updatePositionData = function () {
+    var updateLayoutData = function () {
       if(!getReverseRelations) return;
-      positionData.visibleReverseRelationsCount = 0;
+      layoutData.visibleReverseRelationsCount = 0;
       getReverseRelations().forEach(function (item) {
         if (focussed || item.isSelected()) {
-          item.setIndex(positionData.visibleReverseRelationsCount++);
+          item.setIndex(layoutData.visibleReverseRelationsCount++);
         } else {
           item.setIndex(-1);
         }
       });
-      positionData.visibleRelationsCount = 0;
+      layoutData.visibleRelationsCount = 0;
       getRelations().forEach(function (item) {
         if (focussed || item.isSelected()) {
-          item.setIndex(positionData.visibleRelationsCount++);
+          item.setIndex(layoutData.visibleRelationsCount++);
         } else {
           item.setIndex(-1);
         }
       });
-      positionData.visibleAttributesCount = 0;
+      layoutData.visibleAttributesCount = 0;
       getAttributes().forEach(function (item) {
         if (focussed || item.isSelected()) {
-          item.setIndex(positionData.visibleAttributesCount++);
+          item.setIndex(layoutData.visibleAttributesCount++);
         } else {
           item.setIndex(-1);
         }
       });
-      positionData.totalHeight =
-        (positionData.visibleReverseRelationsCount + positionData.visibleRelationsCount + positionData.visibleAttributesCount) * 20 + 45;
+      layoutData.totalHeight =
+        (layoutData.visibleReverseRelationsCount + layoutData.visibleRelationsCount + layoutData.visibleAttributesCount) * 20 + 45;
     };
 
     function renderPosition() {
@@ -222,10 +221,10 @@
       graph.renderRelations();
     }
 
-    function positionEverything() {
+    function layoutEverything() {
       // positions everything inside the group
-      positionBindings.forEach(function (binding) {
-        binding.update(positionData, window.fragment.immediateDiff);
+      layoutBindings.forEach(function (binding) {
+        binding.update(layoutData, window.fragment.immediateDiff);
       });
     };
 
@@ -274,6 +273,50 @@
       }
     };
 
+    function updateWidth(item) {
+      item.setWidth(layoutData.width);
+    }
+
+    function setWidth(newWidth) {
+      layoutData.width = newWidth;
+      if(getReverseRelations) {
+        getReverseRelations().forEach(updateWidth);
+        getRelations().forEach(updateWidth);
+        getAttributes().forEach(updateWidth);
+      }
+    };
+
+    function beginResize(fromX, fromY) {
+      var oldWidth = layoutData.width;
+      var oldX = x;
+      var scale = graph.getScale();
+      var from = toSVGCoordinates(rootGroup[0], fromX, fromY);
+      var svg = $(rootGroup[0].ownerSVGElement);
+      function moveTo(toX, toY) {
+        var to = toSVGCoordinates(rootGroup[0], toX, toY);
+        var newWidth = oldWidth + (to[0] - from[0]) / scale;
+        if(newWidth < 80) {
+          newWidth = 80;
+        }
+        setWidth(newWidth);
+        x = oldX + (newWidth - oldWidth) / 2;
+        renderPosition();
+        layoutEverything();
+      };
+      function mouseMoved(evt) {
+        moveTo(evt.clientX, evt.clientY);
+      };
+      svg.on("mousemove", mouseMoved);
+      svg.one("mouseup", function (evt) {
+        svg.off("mousemove", mouseMoved);
+      });
+    };
+
+    resizeRect.on("mousedown", function (evt) {
+      beginResize(evt.clientX, evt.clientY, null);
+      evt.stopPropagation();
+    });
+
     rootGroup.on("mousedown", function (evt) {
       beginDrag(evt.clientX, evt.clientY, null);
       evt.stopPropagation();
@@ -315,23 +358,23 @@
     // Initialization
 
     renderPosition();
-    positionEverything();
+    layoutEverything();
 
     // listen to the dataSource
-    var subscription = dataSource.subscribe(id, function (data) {
-      model = data;
-      if(!data) {
+    var subscription = dataSource.subscribe(id, function (newData) {
+      data = newData;
+      if(!newData) {
         graph.hideInstance(id); // calls our dispose()
       } else {
         bindings.forEach(function (binding) {
-          binding.update(data, window.fragment.immediateDiff);
+          binding.update(newData, window.fragment.immediateDiff);
         });
         if(afterLoad.showReverseOf) {
           showReverseOf(afterLoad.showReverseOf, afterLoad.showReverseOfIsReverse);
           afterLoad = {};
         }
-        updatePositionData();
-        positionEverything();
+        updateLayoutData();
+        layoutEverything();
         graph.renderRelations();
       }
     });
@@ -347,20 +390,40 @@
 
 
   var createAttribute = function (append, id, type, instance) {
-    var model = null;
+    var data = null;
+    var bindings = [];
+    var bindingFactory = window.fragment.createBindingFactory(bindings);
+    var layoutData = {
+      width: 160
+    };
+    var layoutBindings = [];
+    var layoutBindingFactory = window.fragment.createBindingFactory(layoutBindings);
+
     var index = -1;
-    var backgroundRect, nameText, valueText;
+    var backgroundRect;
     var selected = false;
+
+    var nameText = bindingFactory.text(function (d) {
+      return (data.name || data.id);
+    });
+    var valueText = bindingFactory.text(function (d) {
+      return ((typeof data.stored === "string") ? data.stored : "");
+    });
+
+    var width = layoutBindingFactory.attribute("width");
+    var textStartX = layoutBindingFactory.attribute(function (d) { return 10-d.width / 2; });
+    var backgroundStartX = layoutBindingFactory.attribute(function (d) { return -d.width / 2; });
+
     var rootGroup = svg.g({ "class": "attribute", "display": "none" },
-      backgroundRect = svg.rect({ "class": "background", x: "-80", y: "0", width: "160", height: "20" }),
-      nameText = svg.text({
+      backgroundRect = svg.rect({ "class": "background", x: backgroundStartX, y: "0", width: width, height: "20" }),
+      svg.text({
         "class": "name", "text-anchor": "left", "clip-path": "url(#clip-key-" + instance.getId() + ")",
-        x: "-70", y: "0", dy: "15", "pointer-events": "none"
-      }, ""),
-      valueText = svg.text({
+        x: textStartX, y: "0", dy: "15", "pointer-events": "none"
+      }, nameText),
+      svg.text({
         "class": "value", "text-anchor": "left", "clip-path": "url(#clip-value-" + instance.getId() + ")",
         x: "10", y: "0", dy: "15", "pointer-events": "none"
-      }, "")
+      }, valueText)
     );
 
     backgroundRect.on("mousedown", function (evt) {
@@ -387,7 +450,7 @@
     };
 
     var createDialog = function (appendTo) {
-      html.h1(model.name || model.id).appendTo(appendTo);
+      html.h1(data.name || data.id).appendTo(appendTo);
       html.button("Hide")
         .on("click", function (evt) {
           evt.preventDefault();
@@ -397,15 +460,15 @@
         })
         .appendTo(appendTo);
       if(type === "attribute") {
-        html.textarea().val(model.stored).prop('readonly', true).appendTo(appendTo);
+        html.textarea().val(data.stored).prop('readonly', true).appendTo(appendTo);
       } else {
         // todo: header
-        if(model.stored instanceof Array) {
-          for(var i = 0; i < model.stored.length; i++) {
-            appendRelationLine(appendTo, model.stored[i], i);
+        if(data.stored instanceof Array) {
+          for(var i = 0; i < data.stored.length; i++) {
+            appendRelationLine(appendTo, data.stored[i], i);
           }
         } else {
-          appendRelationLine(appendTo, model.stored, 0);
+          appendRelationLine(appendTo, data.stored, 0);
         }
       }
       return {
@@ -424,20 +487,34 @@
 
     append(rootGroup);
 
+    var render = function () {
+      bindings.forEach(function (binding) {
+        binding.update(data, window.fragment.immediateDiff);
+      });
+    };
+    var renderLayout = function () {
+      layoutBindings.forEach(function (binding) {
+        binding.update(layoutData, window.fragment.immediateDiff);
+      });
+    };
+
     var api = {
       id: id,
       isReverseRelation: function () {
-        return !!model.reverse;
+        return !!data.reverse;
       },
       getReverseOf: function () {
-        return model.reverse;
+        return data.reverse;
       },
-      init: function (data) {
-        model = data;
-        nameText.text(data.name || data.id);
-        valueText.text((typeof data.stored === "string") ? data.stored : "");
+      init: function (initData) {
+        data = initData;
+        render();
       },
-      update: function (data) {
+      update: function (newData) {
+        data = newData;
+        render();
+      },
+      destroy: function () {
       },
       getIndex: function () {
         return index;
@@ -467,21 +544,27 @@
         return selected;
       },
       getValue: function () {
-        return model.stored;
+        return data.stored;
       },
       forEachValue:function (callback) {
-        if(model.stored) {
-          if(model.stored instanceof Array) {
-            model.stored.forEach(callback);
+        if(data.stored) {
+          if(data.stored instanceof Array) {
+            data.stored.forEach(callback);
           } else {
-            callback(model.stored, 0);
+            callback(data.stored, 0);
           }
         }
       },
       getInstance: function () {
         return instance;
+      },
+      setWidth:function (newWidth) {
+        layoutData.width = newWidth;
+        renderLayout();
       }
     };
+
+    renderLayout();
     return api;
   };
 
