@@ -10,6 +10,9 @@
   var html = $.element.html;
   var svg = $.element.svg;
   var createFragmentType = window.fragment.createFragmentType;
+  var stopPropagation = function (evt) {
+    evt.stopPropagation();
+  };
 
   // Using zepto, borrowing from d3 when needed.
   var initZoom = function (handleZoom, visualization, onRescale) {
@@ -139,6 +142,10 @@
       };
     };
 
+    var close = function () {
+      graph.hideInstance(id);
+    };
+
     // the bindings and markup
     var separator2Y = layoutBindingFactory.attribute(function (d) { return (d.visibleReverseRelationsCount * 20 + 32); });
     var relationsGroupTransform = layoutBindingFactory.attribute(function (d) { return "translate(0, " + (d.visibleReverseRelationsCount * 20 + 33) + ")"; });
@@ -148,11 +155,12 @@
     var backgroundX = layoutBindingFactory.attribute(function (d) { return -d.width/2; });
     var textStartX = layoutBindingFactory.attribute(function (d) { return 10 - d.width / 2;});
     var textColumnWidth = layoutBindingFactory.attribute(function (d) { return d.width / 2 - 15; });
-    var textWidth = layoutBindingFactory.attribute(function (d) { return d.width - 20; });
+    var textWidth = layoutBindingFactory.attribute(function (d) { return d.width - 27; });
     var width = layoutBindingFactory.attribute("width");
     var totalHeight = layoutBindingFactory.attribute("totalHeight");
     var lineStartX = layoutBindingFactory.attribute(function (d) { return -d.width/2; });
     var lineEndX = layoutBindingFactory.attribute(function (d) { return d.width / 2; });
+    var closeTranform = layoutBindingFactory.attribute(function (d) { return "translate(" + (d.width / 2 - 20) + ", 0)"; });
 
     var expandCollapsePath, expandCollapseGroup, resizeRect;
     var rootGroup = svg.g({ "class": "instance" },
@@ -160,6 +168,12 @@
         "class": "background", x: backgroundX, y: "0",
         width: width, height: layoutBindingFactory.attribute("totalHeight"), rx: "10", ry: "10"
       }),
+      svg.g({transform: closeTranform},
+        svg.rect({ x: 0, y: 0, width: 20, height: 20, cursor: "pointer", fill: "transparent" })
+          .on("click", close)
+          .on("mousedown", stopPropagation),
+        svg.path({stroke: "white", "stroke-width": 1.5, "pointer-events": "none", d: "M7,5 l 8,8 m -8,0 l 8,-8"})
+      ),
       svg.clipPath({ id: "clip-" + id }, svg.rect({ x: textStartX, y: "0", width: textWidth, height: totalHeight })),
       svg.clipPath({ id: "clip-key-" + id }, svg.rect({ x: textStartX, y: "0", width: textColumnWidth, height: totalHeight })),
       svg.clipPath({ id: "clip-value-" + id }, svg.rect({ x: "5", y: "0", width: textColumnWidth, height: totalHeight })),
@@ -327,9 +341,7 @@
       evt.stopPropagation();
     });
 
-    expandCollapseGroup.on("mousedown mouseup touchstart", function (evt) {
-      evt.stopPropagation();
-    });
+    expandCollapseGroup.on("mousedown touchstart", stopPropagation);
     expandCollapseGroup.on("click", function (evt) {
       click(evt);
     });
@@ -385,7 +397,7 @@
 
 
 
-  // ATTRIBUTE
+  // ATTRIBUTE ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 
@@ -400,38 +412,79 @@
     var layoutBindingFactory = window.fragment.createBindingFactory(layoutBindings);
 
     var index = -1;
-    var backgroundRect;
     var selected = false;
 
-    var nameText = bindingFactory.text(function (d) {
-      return (data.name || data.id);
-    });
-    var valueText = bindingFactory.text(function (d) {
-      return ((typeof data.stored === "string") ? data.stored : "");
-    });
+    var api = {
+      id: id,
+      isReverseRelation: function () {
+        return !!data.reverse;
+      },
+      getReverseOf: function () {
+        return data.reverse;
+      },
+      init: function (initData) {
+        data = initData;
+        render();
+      },
+      update: function (newData) {
+        data = newData;
+        render();
+      },
+      destroy: function () {
+      },
+      getIndex: function () {
+        return index;
+      },
+      setIndex: function (newIndex) {
+        index = newIndex;
+        if (newIndex === -1) {
+          rootGroup.attr("display", "none");
+        } else {
+          rootGroup.attr("display", "");
+          rootGroup.attr("transform", "translate(0, " + (20 * index) + ")");
+        }
+      },
+      setSelected: function (newSelected) {
+        if (selected !== newSelected) {
+          selected = newSelected;
+          rootGroup.toggleClass("selected", newSelected);
+          instance.render();
+          if (selected) {
+            instance.getGraph().showRelations(api);
+          } else {
+            instance.getGraph().hideRelations(api);
+          }
+        }
+      },
+      isSelected: function () {
+        return selected;
+      },
+      getValue: function () {
+        return data.stored;
+      },
+      forEachValue: function (callback) {
+        if (data.stored) {
+          if (data.stored instanceof Array) {
+            data.stored.forEach(callback);
+          } else {
+            callback(data.stored, 0);
+          }
+        }
+      },
+      getInstance: function () {
+        return instance;
+      },
+      setWidth: function (newWidth) {
+        layoutData.width = newWidth;
+        renderLayout();
+      }
+    };
 
-    var width = layoutBindingFactory.attribute("width");
-    var textStartX = layoutBindingFactory.attribute(function (d) { return 10-d.width / 2; });
-    var backgroundStartX = layoutBindingFactory.attribute(function (d) { return -d.width / 2; });
-
-    var rootGroup = svg.g({ "class": "attribute", "display": "none" },
-      backgroundRect = svg.rect({ "class": "background", x: backgroundStartX, y: "0", width: width, height: "20" }),
-      svg.text({
-        "class": "name", "text-anchor": "left", "clip-path": "url(#clip-key-" + instance.getId() + ")",
-        x: textStartX, y: "0", dy: "15", "pointer-events": "none"
-      }, nameText),
-      svg.text({
-        "class": "value", "text-anchor": "left", "clip-path": "url(#clip-value-" + instance.getId() + ")",
-        x: "10", y: "0", dy: "15", "pointer-events": "none"
-      }, valueText)
-    );
-
-    backgroundRect.on("mousedown", function (evt) {
+    var openEditor = function (evt) {
+      instance.getGraph().showDialog(createDialog);
+      evt.preventDefault();
       evt.stopPropagation();
-    });
-    backgroundRect.on("mouseup", function (evt) {
-      evt.stopPropagation();
-    });
+    };
 
     var appendRelationLine = function (appendTo, id, index) {
       html.label({ "class": "line" },
@@ -475,17 +528,15 @@
       };
     };
 
-    backgroundRect.on("click", function (evt) {
+    var toggleSelected = function (evt) {
       evt.preventDefault();
       evt.stopPropagation();
       if (!selected) {
         api.setSelected(true);
       } else {
-        instance.getGraph().showDialog(createDialog);
+        api.setSelected(false);
       }
-    });
-
-    append(rootGroup);
+    };
 
     var render = function () {
       bindings.forEach(function (binding) {
@@ -498,72 +549,51 @@
       });
     };
 
-    var api = {
-      id: id,
-      isReverseRelation: function () {
-        return !!data.reverse;
-      },
-      getReverseOf: function () {
-        return data.reverse;
-      },
-      init: function (initData) {
-        data = initData;
-        render();
-      },
-      update: function (newData) {
-        data = newData;
-        render();
-      },
-      destroy: function () {
-      },
-      getIndex: function () {
-        return index;
-      },
-      setIndex: function (newIndex) {
-        index = newIndex;
-        if(newIndex === -1) {
-          rootGroup.attr("display", "none");
-        } else {
-          rootGroup.attr("display", "");
-          rootGroup.attr("transform", "translate(0, " + (20 * index) + ")");
+    var nameText = bindingFactory.text(function (d) {
+      return (d.name || d.id);
+    });
+    var valueText = bindingFactory.text(function (d) {
+      if (type === "attribute") {
+        if (!d.stored) return "";
+        if(d.stored instanceof Array) {
+          return ""+d.stored.length;
         }
-      },
-      setSelected: function (newSelected) {
-        if(selected !== newSelected) {
-          selected = newSelected;
-          rootGroup.toggleClass("selected", newSelected);
-          instance.render();
-          if (selected) {
-            instance.getGraph().showRelations(api);
-          } else {
-            instance.getGraph().hideRelations(api);
-          }
-        }
-      },
-      isSelected: function () {
-        return selected;
-      },
-      getValue: function () {
-        return data.stored;
-      },
-      forEachValue:function (callback) {
-        if(data.stored) {
-          if(data.stored instanceof Array) {
-            data.stored.forEach(callback);
-          } else {
-            callback(data.stored, 0);
-          }
-        }
-      },
-      getInstance: function () {
-        return instance;
-      },
-      setWidth:function (newWidth) {
-        layoutData.width = newWidth;
-        renderLayout();
+        return "" + d.stored;
       }
-    };
+      // relation
+      if(d.stored instanceof Array) {
+        return "" + d.stored.length;
+      } else {
+        if(!d.stored) {
+          return "0";
+        }
+        return "1";
+      }
+    });
 
+    var width = layoutBindingFactory.attribute("width");
+    var textStartX = layoutBindingFactory.attribute(function (d) { return 10 - d.width / 2; });
+    var backgroundStartX = layoutBindingFactory.attribute(function (d) { return -d.width / 2; });
+    var columWidth = layoutBindingFactory.attribute(function (d) { return d.width / 2; });
+
+    var rootGroup = svg.g({ "class": "attribute", "display": "none" },
+      svg.rect({ "class": "background", x: backgroundStartX, y: 0, width: width, height: 20 })
+        .on("click", toggleSelected)
+        .on("mousedown", stopPropagation),
+      svg.text({
+        "class": "name", "text-anchor": "left", "clip-path": "url(#clip-key-" + instance.getId() + ")",
+        x: textStartX, y: "0", dy: "15", "pointer-events": "none"
+      }, nameText),
+      svg.rect({x: 0, y: 0, width: columWidth, height: "20", fill: "transparent", cursor: "pointer" })
+        .on("click", openEditor)
+        .on("mousedown", stopPropagation),
+      svg.text({
+        "class": "value", "text-anchor": "left", "clip-path": "url(#clip-value-" + instance.getId() + ")",
+        x: "10", y: "0", dy: "15", "pointer-events": "none"
+      }, valueText).on("click", openEditor)
+    );
+
+    append(rootGroup);
     renderLayout();
     return api;
   };

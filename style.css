@@ -82,7 +82,11 @@
 
 .instance-graph .attribute > .background {
   fill: #888888;
-  cursor: pointer;
+  cursor: cell;
+}
+
+.instance-graph .attribute > .value {
+  text-decoration: underline;
 }
 
 .instance-graph .attribute.selected > .background {
