@@ -9,7 +9,6 @@
   // definitions
   var html = $.element.html;
   var svg = $.element.svg;
-  var createFragmentType = window.fragment.createFragmentType;
   var stopPropagation = function (evt) {
     evt.stopPropagation();
   };
@@ -99,12 +98,12 @@
           layoutEverything();
         }
       },
-      showReverseOf: function (relation, relationIsReverse) {
+      selectReverseOf: function (relation, relationIsReverse) {
         if (data) {
-          showReverseOf(relation, relationIsReverse);
+          selectReverseOf(relation, relationIsReverse);
         } else {
-          afterLoad.showReverseOf = relation;
-          afterLoad.showReverseOfIsReverse = relationIsReverse;
+          afterLoad.selectReverseOf = relation;
+          afterLoad.selectReverseOfIsReverse = relationIsReverse;
         }
       },
       getRelationPosition: function (relation, relationIsReverse, anchor) {
@@ -119,16 +118,24 @@
             }
           });
         }
-        offset = offset + relation.getIndex() * 20;
+        if(relation.getIndex() !== -1) {
+          offset = offset + relation.getIndex() * 20;
+        }
         return [x + (anchor === "right" ? layoutData.width/2 : -layoutData.width/2), y + offset + 10];
       },
-      dispose: function () {
+      forEachRelationValue: function (callback) {
         getRelations().forEach(function (relation) {
-          relation.setSelected(false);
+          relation.forEachValue(function (value) {
+            callback(relation, value, false);
+          });
         });
         getReverseRelations().forEach(function (relation) {
-          relation.setSelected(false);
+          relation.forEachValue(function (value) {
+            callback(relation, value, true);
+          });
         });
+      },
+      dispose: function () {
         rootGroup.remove();
         subscription.dispose();
       }
@@ -348,7 +355,7 @@
 
     appendTo.append(rootGroup);
 
-    var showReverseOf = function (otherRelation, otherRelationIsReverse) {
+    var selectReverseOf = function (otherRelation, otherRelationIsReverse) {
       if(otherRelationIsReverse) {
         var reverseId = otherRelation.getReverseOf();
         getRelations().forEach(function (relation) {
@@ -381,8 +388,8 @@
         bindings.forEach(function (binding) {
           binding.update(newData, window.fragment.immediateDiff);
         });
-        if(afterLoad.showReverseOf) {
-          showReverseOf(afterLoad.showReverseOf, afterLoad.showReverseOfIsReverse);
+        if(afterLoad.selectReverseOf) {
+          selectReverseOf(afterLoad.selectReverseOf, afterLoad.selectReverseOfIsReverse);
           afterLoad = {};
         }
         updateLayoutData();
@@ -449,11 +456,6 @@
           selected = newSelected;
           rootGroup.toggleClass("selected", newSelected);
           instance.render();
-          if (selected) {
-            instance.getGraph().showRelations(api);
-          } else {
-            instance.getGraph().hideRelations(api);
-          }
         }
       },
       isSelected: function () {
@@ -599,15 +601,15 @@
   };
 
 
-  // RELATION (edge)
+  // RELATION (edge) ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   var createRelation = function (appendTo, relation, reverseRelation) {
     var path = svg.path({ "class": "relation", d: "" });
     path.appendTo(appendTo);
     return {
-      isConnectedTo: function (aRelation) {
-        return aRelation === relation || aRelation === reverseRelation;
+      isConnectedTo: function (instance) {
+        return relation.getInstance() === instance || reverseRelation.getInstance() === instance;
       },
       render: function () {
         var from = relation.getInstance().getRelationPosition(relation, false, "right");
@@ -622,7 +624,7 @@
 
 
 
-  // INSTANCE GRAPH
+  // INSTANCE GRAPH //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 
@@ -636,33 +638,55 @@
       scale = newScale;
     };
 
+    var hideRelations = function (instance) {
+      for(var i = 0; i < relations.length;) {
+        if(relations[i].isConnectedTo(instance)) {
+          relations[i].dispose();
+          relations.splice(i, 1);
+        } else {
+          i++;
+        }
+      }
+    };
+
+    var showRelations = function (instance) {
+      instance.forEachRelationValue(function (relation, value, isReverseRelation) {
+        instances.forEach(function (otherInstance) {
+          if (otherInstance.id === value) {
+            instance.selectReverseOf(relation, isReverseRelation);
+          }
+        });
+      });
+    };
+
     // Initialization
-    var handleZoom, backgroundElement, visualization, instancesGroup, relationsGroup;
+    var handleZoom, visualization, instancesGroup, relationsGroup;
     var focussedInstance = null;
     var defs = html.div({ "class": "svg-defs"},
-        svg.svg(
-          svg.defs(
-            svg.linearGradient({ id: "instance-gradient", x1: "0%", y1: "0%", x2: "0%", y2: "100%" },
-              svg.stop({offset: "0%", "class": "instance-gradient-from"}),
-              svg.stop({offset: "100%", "class": "instance-gradient-to"})
-            ),
-            svg.linearGradient({ id: "selected-instance-gradient", x1: "0%", y1: "0%", x2: "0%", y2: "100%" },
-              svg.stop({ offset: "0%", "class": "selected-instance-gradient-from" }),
-              svg.stop({ offset: "100%", "class": "selected-instance-gradient-to" })
-            )
+      svg.svg(
+        svg.defs(
+          svg.linearGradient({ id: "instance-gradient", x1: "0%", y1: "0%", x2: "0%", y2: "100%" },
+            svg.stop({offset: "0%", "class": "instance-gradient-from"}),
+            svg.stop({offset: "100%", "class": "instance-gradient-to"})
+          ),
+          svg.linearGradient({ id: "selected-instance-gradient", x1: "0%", y1: "0%", x2: "0%", y2: "100%" },
+            svg.stop({ offset: "0%", "class": "selected-instance-gradient-from" }),
+            svg.stop({ offset: "100%", "class": "selected-instance-gradient-to" })
           )
         )
-      );
+      )
+    );
     var chartSvg = html.div({ "class": "chart" },
       svg.svg({preserveAspectRatio: "xMidYMid slice", viewBox: "-600 -600 1200 1200", "pointer-events": "all" },
         handleZoom = svg.g({ "class": "handle-zoom"},
-          backgroundElement = svg.rect({"class": "background", x: "-600", y: "-600", width: "1200", height: "1200", fill: "transparent"}),
+          svg.rect({"class": "background", x: "-600", y: "-600", width: "1200", height: "1200", fill: "transparent"}),
           visualization = svg.g({"class": "visualization"},
             relationsGroup = svg.g(),
             instancesGroup = svg.g()
           )
         )
-      ));
+      )
+    );
     appendTo.append(defs);
     appendTo.append(chartSvg);
 
@@ -718,7 +742,8 @@
         }
         var instance = createInstance(instancesGroup, instanceId, parentApi, dataSource, [x, y]);
         instances.push(instance);
-        instance.showReverseOf(relation, relationIsReverse);
+        instance.selectReverseOf(relation, relationIsReverse);
+        showRelations(instance);
       },
       hideInstance: function (instanceId) {
         for(var i = 0; i < instances.length; i++) {
@@ -726,29 +751,11 @@
           if(instance.id === instanceId) {
             instance.dispose();
             instances.splice(i, 1);
+            hideRelations(instance);
             return;
           }
         }
         throw new Error("instance not found: " + instanceId);
-      },
-      hideRelations: function (relation) {
-        for(var i = 0; i < relations.length;) {
-          if (relations[i].isConnectedTo(relation)) {
-            relations[i].dispose();
-            relations.splice(i, 1);
-          } else {
-            i++;
-          }
-        }
-      },
-      showRelations: function (relation) {
-        relation.forEachValue(function (value) {
-          instances.forEach(function (instance) {
-            if(instance.id === value) {
-              instance.showReverseOf(relation, relation.isReverseRelation());
-            }
-          });
-        });
       },
       addVisibleRelation: function (relation, reverseRelation) {
         relations.push(createRelation(relationsGroup, relation, reverseRelation));
