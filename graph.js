@@ -627,17 +627,63 @@
   // RELATION (edge) ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-  var createRelation = function (appendTo, relation, reverseRelation) {
+  var createEdge = function(appendTo, relation, value, reverseRelation, reverseValue) {
     var path = svg.path({ "class": "relation", d: "" });
+    
     path.appendTo(appendTo);
+    
+    var setVisibility = function() {
+      path[0].setAttribute("display", (relation && reverseRelation)?"":"none");
+    };
+    
     return {
-      isConnectedTo: function (instance) {
-        return relation.getInstance() === instance || reverseRelation.getInstance() === instance;
+      connectTo: function (fromInstance, fromRelation, toValue) {
+        if (!relation) {
+          if (reverseValue === fromInstance.id 
+                && reverseRelation.getInstance().id === toValue
+                && reverseRelation.getReverse() === fromRelation.id) {
+            relation = fromRelation;
+            value = toValue;
+            setVisibility();
+            return true;
+          }
+        }
+        return false;
+      },
+      connectToReverse: function(toInstance, toReverseRelation, fromValue) {
+        if (!reverseRelation) {
+          if (value === toInstance.id 
+                && fromValue === relation.getInstance().id 
+                && toReverseRelation.getReverse() === relation.id) {
+            reverseRelation = toReverseRelation;
+            reverseValue = fromValue;
+            setVisibility();
+            return true;
+          }
+        }
+        return false;
+      },
+      instanceHidden: function(id) {
+        if (id === value) {
+          reverseRelation = null;
+          reverseValue = null;
+          setVisibility();
+          return !!relation;
+        }
+        if (id === reverseValue) {
+          relation = null;
+          value = null;
+          setVisibility();
+          return !!reverseRelation;
+        }
+        return true;
       },
       render: function () {
-        var from = relation.getInstance().getRelationPosition(relation, false, "right");
-        var to = reverseRelation.getInstance().getRelationPosition(reverseRelation, true, "left");
-        path[0].setAttribute("d", "M"+from+" L"+to);
+        if (reverseRelation && relation) {
+          var from = relation.getInstance().getRelationPosition(relation, false, "right");
+          var to = reverseRelation.getInstance().getRelationPosition(reverseRelation, true, "left");
+          path[0].setAttribute("d", "M"+from+" L"+to);
+        }
       },
       dispose: function () {
         path.remove();
