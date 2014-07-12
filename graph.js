@@ -41,7 +41,7 @@
 
 
 
-  // INSTANCE
+  // INSTANCE /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 
@@ -409,7 +409,7 @@
 
 
   var createAttribute = function (append, id, type, instance) {
-    var data = null;
+    var data = {}; // format { id: "project", reverse: "issues", owner: true, stored: "project1" }
     var bindings = [];
     var bindingFactory = window.fragment.createBindingFactory(bindings);
     var layoutData = {
@@ -431,10 +431,33 @@
       },
       init: function (initData) {
         data = initData;
+        var graph = instance.getGraph();
+        api.forEachValue(function (value) {
+          graph.relationValueAdded(api, value, data.reverse);
+        });
         render();
       },
       update: function (newData) {
+        var graph = instance.getGraph();
+        var oldValues = data.stored;
+        if(!oldValues) {
+          oldValues = [];
+        }
+        if(!(oldValues instanceof Array)) {
+          oldValues = [oldValues];
+        }
         data = newData;
+        api.forEachValue(function (newValue) {
+          var i = oldValues.indexOf(newValue);
+          if(index === -1) {
+            oldValues.splice(i, 1);
+          } else {
+            graph.relationValueAdded(api, newValue, data.reverse);
+          }
+        });
+        oldValues.forEach(function (value) {
+          graph.relationValueRemoved(api, value, data.reverse);
+        });
         render();
       },
       destroy: function () {
