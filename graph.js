@@ -89,14 +89,13 @@
         if (focus) {
           rootGroup.addClass("focus");
           expandCollapsePath.attr("transform", "rotate(180 10 4)");
-          updateLayoutData();
-          layoutEverything();
         } else {
           rootGroup.removeClass("focus");
           expandCollapsePath.attr("transform", "");
-          updateLayoutData();
-          layoutEverything();
         }
+        updateLayoutData();
+        layoutEverything();
+        graph.renderRelations();
       },
       selectReverseOf: function (relation, relationIsReverse) {
         if (data) {
@@ -119,9 +118,9 @@
           });
         }
         if(relation.getIndex() !== -1) {
-          offset = offset + relation.getIndex() * 20;
+          offset = offset + relation.getIndex() * 20 + 10;
         }
-        return [x + (anchor === "right" ? layoutData.width/2 : -layoutData.width/2), y + offset + 10];
+        return [x + (anchor === "right" ? layoutData.width/2 : -layoutData.width/2), y + offset];
       },
       forEachRelationValue: function (callback) {
         getRelations().forEach(function (relation) {
@@ -361,14 +360,12 @@
         getRelations().forEach(function (relation) {
           if(relation.id === reverseId) {
             relation.setSelected(true);
-            graph.addVisibleRelation(relation, otherRelation);
           }
         });
       } else {
         getReverseRelations().forEach(function (relation) {
           if (relation.getReverseOf() === otherRelation.id) {
             relation.setSelected(true);
-            graph.addVisibleRelation(otherRelation, relation);
           }
         });
       }
@@ -431,10 +428,12 @@
       },
       init: function (initData) {
         data = initData;
-        var graph = instance.getGraph();
-        api.forEachValue(function (value) {
-          graph.relationValueAdded(api, value, data.reverse);
-        });
+        if(type !== "attribute") {
+          var graph = instance.getGraph();
+          api.forEachValue(function (value) {
+            graph.relationValueAdded(api, value, data.reverse);
+          });
+        }
         render();
       },
       update: function (newData) {
@@ -479,6 +478,7 @@
           selected = newSelected;
           rootGroup.toggleClass("selected", newSelected);
           instance.render();
+          instance.getGraph().renderRelations();
         }
       },
       isSelected: function () {
@@ -624,7 +624,7 @@
   };
 
 
-  // RELATION (edge) ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // EDGE (relation) ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   var createEdge = function(appendTo, relation, value, reverseRelation, reverseValue) {
@@ -641,7 +641,7 @@
         if (!relation) {
           if (reverseValue === fromInstance.id 
                 && reverseRelation.getInstance().id === toValue
-                && reverseRelation.getReverse() === fromRelation.id) {
+                && reverseRelation.getReverseOf() === fromRelation.id) {
             relation = fromRelation;
             value = toValue;
             setVisibility();
@@ -654,7 +654,7 @@
         if (!reverseRelation) {
           if (value === toInstance.id 
                 && fromValue === relation.getInstance().id 
-                && toReverseRelation.getReverse() === relation.id) {
+                && toReverseRelation.getReverseOf() === relation.id) {
             reverseRelation = toReverseRelation;
             reverseValue = fromValue;
             setVisibility();
@@ -663,18 +663,31 @@
         }
         return false;
       },
-      instanceHidden: function(id) {
-        if (id === value) {
-          reverseRelation = null;
-          reverseValue = null;
-          setVisibility();
-          return !!relation;
+      removeFrom: function (fromInstance, fromRelation, oldValue) {
+        // value was removed from a relation
+        if(relation && relation === fromRelation) {
+          if (oldValue === value) {
+            relation = reverseRelation = null;
+            return false; // indicates that we should be removed now
+          }
         }
-        if (id === reverseValue) {
+        return true;
+      },
+      removeFromReverse: function () {
+        throw new Error("not yet implemented");
+      },
+      instanceHidden: function(id) {
+        if (relation && relation.getInstance().id === id) {
           relation = null;
           value = null;
           setVisibility();
           return !!reverseRelation;
+        }
+        if (reverseRelation && reverseRelation.getInstance().id === id) {
+          reverseRelation = null;
+          reverseValue = null;
+          setVisibility();
+          return !!relation;
         }
         return true;
       },
@@ -701,31 +714,21 @@
 
     // state
     var instances = [];
-    var relations = [];
+    var edges = [];
     var scale = 1;
     var onRescale = function (newScale) {
       scale = newScale;
     };
 
     var hideRelations = function (instance) {
-      for(var i = 0; i < relations.length;) {
-        if(relations[i].isConnectedTo(instance)) {
-          relations[i].dispose();
-          relations.splice(i, 1);
+      for(var i = 0; i < edges.length;) {
+        if(!edges[i].instanceHidden(instance.id)) {
+          edges[i].dispose();
+          edges.splice(i, 1);
         } else {
           i++;
         }
       }
-    };
-
-    var showRelations = function (instance) {
-      instance.forEachRelationValue(function (relation, value, isReverseRelation) {
-        instances.forEach(function (otherInstance) {
-          if (otherInstance.id === value) {
-            instance.selectReverseOf(relation, isReverseRelation);
-          }
-        });
-      });
     };
 
     // Initialization
@@ -793,9 +796,9 @@
       removeDialog: function () {
         chartSvg.find(".overlay").remove();
       },
-      isInstanceVisible: function (id) {
+      isInstanceVisible: function (instanceId) {
         for(var i = 0; i < instances.length; i++) {
-          if(instances[i].id === id) {
+          if (instances[i].id === instanceId) {
             return true;
           }
         }
@@ -812,7 +815,6 @@
         var instance = createInstance(instancesGroup, instanceId, parentApi, dataSource, [x, y]);
         instances.push(instance);
         instance.selectReverseOf(relation, relationIsReverse);
-        showRelations(instance);
       },
       hideInstance: function (instanceId) {
         for(var i = 0; i < instances.length; i++) {
@@ -826,14 +828,50 @@
         }
         throw new Error("instance not found: " + instanceId);
       },
-      addVisibleRelation: function (relation, reverseRelation) {
-        relations.push(createRelation(relationsGroup, relation, reverseRelation));
-        parentApi.renderRelations();
-      },
       renderRelations: function () {
-        relations.forEach(function (relation) {
+        edges.forEach(function (relation) {
           relation.render();
         });
+      },
+      relationValueAdded: function (attribute, value, reverseOf) {
+        var instance = attribute.getInstance();
+        var found = false;
+        if(reverseOf) {
+          edges.forEach(function (edge) {
+            found = found || edge.connectToReverse(instance, attribute, value);
+          });
+          if (!found) {
+            edges.push(createEdge(relationsGroup, null, null, attribute, value));
+          }
+        } else {
+          edges.forEach(function (edge) {
+            found = found || edge.connectTo(instance, attribute, value);
+          });
+          if (!found) {
+            edges.push(createEdge(relationsGroup, attribute, value, null, null));
+          }
+        }
+      },
+      relationValueRemoved: function (attribute, value, reverseOf) {
+        var instance = attribute.getInstance();
+        var edgeToRemove = null;
+        if (reverseOf) {
+          edges.forEach(function (edge) {
+            if(!edge.removeFrom(instance, attribute, value)) {
+              edgeToRemove = edge;
+            }
+          });
+        } else {
+          edges.forEach(function (edge) {
+            if(!edge.removeFromReverse(instance, attribute, value)) {
+              edgeToRemove = edge;
+            }
+          });
+        }
+        if(edgeToRemove) {
+          edges.splice(edges.indexOf(edgeToRemove), 1);
+          edgeToRemove.dispose();
+        }
       }
     };
     parentApi.showInstance(startInstanceId, null, null);
