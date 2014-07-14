@@ -148,7 +148,25 @@
   height: 400px;
 }
 
-.instance-graph .dialog > label {
+.instance-graph .dialog > .line {
+  position: relative;
   display: block;
   width: 100%;
+  padding-right: 80px;
+  line-height: 20px;
+  color: #AAAAAA;
+}
+
+.instance-graph .dialog > .line.instance-visible {
+  color: black;
+}
+
+.instance-graph .dialog > .line > button {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 80px;
+  line-height: 16px;
+  height: 20px;
+  padding: 1px;
 }

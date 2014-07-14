@@ -511,36 +511,31 @@
       evt.stopPropagation();
     };
 
-    var appendRelationLine = function (appendTo, id, index) {
-      html.label({ "class": "line" },
-        html.input({ type: "checkbox" })
-          .prop("checked", instance.getGraph().isInstanceVisible(id))
-          .on("click", function (evt) {
-            if($(this).prop("checked")) {
-              instance.getGraph().showInstance(id, instance, api, index, type==="reverseRelation");
-            } else {
-              instance.getGraph().hideInstance(id);
-            }
-          }
-        ),
-        html.span(id)
-      ).appendTo(appendTo);
+    var appendRelationLine = function (appendTo, instanceId, lineIndex) {
+      var visible = instance.getGraph().isInstanceVisible(instanceId);
+      var toggle = function () {
+        visible = !visible;
+        if(visible) {
+          instance.getGraph().showInstance(instanceId, instance, api, lineIndex, type === "reverseRelation");
+        } else {
+          instance.getGraph().hideInstance(instanceId);
+        }
+        showHideButton.text(visible ? "Hide" : "Show");
+        line.toggleClass("instance-visible", visible);
+      };
+      var showHideButton = html.button(visible ? "Hide" : "Show").on("click", toggle);
+
+      var line = html.div({ "class": "line" },
+        html.span(instanceId),
+        showHideButton
+      ).toggleClass("instance-visible", visible).appendTo(appendTo);
     };
 
     var createDialog = function (appendTo) {
       html.h1(data.name || data.id).appendTo(appendTo);
-      html.button("Hide")
-        .on("click", function (evt) {
-          evt.preventDefault();
-          api.setSelected(false);
-          instance.render();
-          instance.getGraph().removeDialog();
-        })
-        .appendTo(appendTo);
       if(type === "attribute") {
         html.textarea().val(data.stored).prop('readonly', true).appendTo(appendTo);
       } else {
-        // todo: header
         if(data.stored instanceof Array) {
           for(var i = 0; i < data.stored.length; i++) {
             appendRelationLine(appendTo, data.stored[i], i);
